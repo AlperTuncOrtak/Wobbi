@@ -1,0 +1,8 @@
+# Gizli ortam değişkenleri ve şifreler
+.env
+
+# Node.js bağımlılıkları
+node_modules/
+
+# Mac OS gizli dosyaları
+.DS_Store
