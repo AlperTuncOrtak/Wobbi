@@ -32,18 +32,17 @@
 
 ## 🏗️ Teknik Mimari
 
-### 📱 Frontend
+### 📱 Frontend (React Native - Expo)
 ```
-Aşama 1 — React Native (Expo)
-  ├── Doğrulama ve kullanıcı testi için iOS ve Android ortak kod tabanı.
-  ├── Mağaza maliyeti yok (Apple 99$ + Google 25$ sonraya kalıyor)
-  └── Mobile-first, tam ekran, uygulama hissi
+Aşama 1 — Android Odaklı MVP (Google Play Store)
+  ├── İlk aşamada sadece Google Play Store hedeflenecek.
+  ├── "Sign in with Google" (Google ile Giriş) eklenecek.
+  ├── Tüm limitler cihaz değil, Kullanıcı Hesabı bazlı tutulacak.
+  └── Mobile-first, tam ekran, çocuk dostu uygulama hissi.
 
-Aşama 2 — Flutter (Dart)
-  ├── iOS + Android tek kod tabanı
-  ├── Lottie animasyon entegrasyonu
-  ├── Haptic feedback desteği
-  └── App Store + Google Play yayını
+Aşama 2 — iOS ve Genişleme
+  ├── App Store maliyetleri (99$) karşılanıp Apple Login eklenecek.
+  └── Lottie animasyonları ve haptic feedback iyileştirilecek.
 ```
 
 ### ☁️ Backend (Oracle Cloud Free Tier)
@@ -113,12 +112,12 @@ v1.1 (Ebeveyn Ses Klonlama):
 - Gök gürültüsü → ekran anlık parıldama
 - Rüzgar/orman sesleri → arka plan ambiyans ses katmanı
 
-### 👨‍👩‍👧 Ebeveyn Kontrol Paneli (PIN Korumalı)
-- 4 haneli PIN ile kilitleme
-- Ekran süresi sınırı (günlük/haftalık)
-- Hassas kelime filtresi ("canavar", "ölüm" → otomatik yumuşatma)
+### 👨‍👩‍👧 Ebeveyn & Üyelik Sistemi (Kullanıcı Odaklı)
+- **Hesap Yönetimi:** Kullanıcılar cihaz bağımsız "Kullanıcı Hesabı" (Google ile Giriş / E-posta) üzerinden sistemi kullanır.
+- 4 haneli PIN ile kilitleme (Ebeveyn alanına geçiş)
+- Ödeme ve Abonelikler **Google Play Billing** üzerinden tek hesaba işlenir.
+- Ekran süresi sınırı ve günlük okuma limitleri bulut (veritabanı) üzerinden takip edilir.
 - Haftalık okuma raporu (duygusal tema analizi)
-- Abonelik yönetimi (şeffaf, 1-2 tıkla iptal)
 
 ### 📊 Haftalık Ebeveyn Raporu
 - Kaç hikaye okundu, kaç dakika
@@ -127,16 +126,16 @@ v1.1 (Ebeveyn Ses Klonlama):
 - E-posta veya uygulama içi bildirim
 
 ### ❤️ Favori + İlerleme
-- Kitaplığa ekleme
+- Kitaplığa ekleme (Kullanıcı hesabına kaydedilir)
 - Son okunan sayfa kaydı
 - Offline pre-load (indirme butonu)
 
 ### 🔓 Freemium Model
 | Kullanıcı Tipi | Ne Alır? |
 |---------------|---------|
-| Ücretsiz | Günde 1 hikaye tamamen açık |
+| Ücretsiz Üye | Günde 1 hikaye hakkı (Hesap bazlı sınır) |
 | Ödüllü Reklam | 30s reklam → ek 1 hikaye hakkı |
-| Premium | Sınırsız hikaye + ses klonlama (v1.1) |
+| Premium Üye | Google Play Aboneliği ile Sınırsız hikaye |
 
 ---
 
@@ -217,13 +216,12 @@ v1.1 (Ebeveyn Ses Klonlama):
 
 ---
 
-### Faz 3 — Flutter'a Geçiş + Store
-- [ ] Flutter projesine geçiş (PWA mantığını port'la)
-- [ ] Lottie Flutter entegrasyonu
-- [ ] Apple IAP + Google Play Billing
-- [ ] COPPA / KVKK uyumu + Gizlilik politikası
-- [ ] TestFlight (iOS beta) + Play Store İç Test
-- [ ] App Store + Google Play yayını 🚀
+### Faz 3 — Mağaza Yayını (Google Play Store)
+- [ ] Google Play Console geliştirici hesabı açılışı
+- [ ] Google Play Billing (Uygulama İçi Satın Alma) entegrasyonu
+- [ ] COPPA / KVKK uyumu + Gizlilik politikası oluşturulması
+- [ ] Google Play İç Test ve Kapalı Test aşamaları (20 tester kuralı vb.)
+- [ ] Google Play Store yayını 🚀
 
 ---
 
