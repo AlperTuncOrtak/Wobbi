@@ -16,6 +16,9 @@ app.use(express.json());
 // Yüklenen dosyaları dışarıya sunmak için statik klasör
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Furkan'ın Admin Panelini sunmak için statik klasör
+app.use('/furkan-panel', express.static(path.join(__dirname, 'admin')));
+
 // ---------------- GÜVENLİK (MULTER DOSYA YÜKLEME) ----------------
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -48,14 +51,27 @@ const upload = multer({
   fileFilter: fileFilter 
 });
 
-// ---------------- GÜVENLİK (JWT AUTHENTICATION) ----------------
+// ---------------- GÜVENLİK (JWT AUTHENTICATION - ADMIN) ----------------
 const authenticateAdmin = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ hata: 'Erişim engellendi. Token yok.' });
   
   jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'wobbi_secret_key', (err, decoded) => {
     if (err) return res.status(403).json({ hata: 'Geçersiz veya süresi dolmuş token.' });
+    if (decoded.role !== 'admin') return res.status(403).json({ hata: 'Admin yetkisi gerekiyor.' });
     req.admin = decoded;
+    next();
+  });
+};
+
+// ---------------- GÜVENLİK (JWT AUTHENTICATION - KULLANICI) ----------------
+const authenticateUser = (req, res, next) => {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(401).json({ hata: 'Erişim engellendi. Token yok.' });
+  
+  jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'wobbi_secret_key', (err, decoded) => {
+    if (err) return res.status(403).json({ hata: 'Geçersiz veya süresi dolmuş token.' });
+    req.user = decoded; // { id, email, is_premium }
     next();
   });
 };
@@ -91,6 +107,48 @@ app.post('/api/admin/upload', authenticateAdmin, upload.single('file'), (req, re
   }
   const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
   res.json({ url: fileUrl });
+});
+
+// Yeni Karakter Ekle
+app.post('/api/admin/characters', authenticateAdmin, async (req, res) => {
+  try {
+    const { name, bio, avatar_url, theme_color } = req.body;
+    const result = await pool.query(
+      'INSERT INTO characters (name, bio, avatar_url, theme_color) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, bio, avatar_url, theme_color]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
+
+// Yeni Hikaye (Kitap) Ekle
+app.post('/api/admin/stories', authenticateAdmin, async (req, res) => {
+  try {
+    const { title, category, character_id, cover_url, duration_minutes, description } = req.body;
+    const result = await pool.query(
+      'INSERT INTO stories (title, category, character_id, cover_url, duration_minutes, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [title, category, character_id, cover_url, duration_minutes, description]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
+
+// Hikaye Sayfası Ekle
+app.post('/api/admin/story_pages', authenticateAdmin, async (req, res) => {
+  try {
+    const { story_id, page_number, image_url, audio_url, text_content, word_timestamps, magic_words } = req.body;
+    const result = await pool.query(
+      'INSERT INTO story_pages (story_id, page_number, image_url, audio_url, text_content, word_timestamps, magic_words) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [story_id, page_number, image_url, audio_url, text_content, JSON.stringify(word_timestamps), JSON.stringify(magic_words)]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
 });
 
 // ---------------- GENEL ENDPOINTLER ----------------
@@ -154,6 +212,124 @@ app.get('/api/stories/:id', async (req, res) => {
     story.pages = pagesResult.rows;
     
     res.json(story);
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
+
+// ---------------- KULLANICI (USER) ENDPOINTLERI ----------------
+
+// Mock Google Login / Kayıt (App içinden Google Auth sonrası buraya istek atılacak)
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { email, google_id } = req.body;
+    if (!email) return res.status(400).json({ hata: 'Email zorunlu' });
+
+    // Kullanıcı var mı kontrol et, yoksa yarat
+    let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user;
+    
+    if (userResult.rows.length === 0) {
+      // İlk defa giren kullanıcı (Kayıt)
+      const insertRes = await pool.query(
+        'INSERT INTO users (email, google_id) VALUES ($1, $2) RETURNING *',
+        [email, google_id]
+      );
+      user = insertRes.rows[0];
+    } else {
+      user = userResult.rows[0];
+    }
+
+    // Kullanıcı için token oluştur
+    const token = jwt.sign(
+      { id: user.id, email: user.email, is_premium: user.is_premium }, 
+      process.env.JWT_SECRET || 'wobbi_secret_key', 
+      { expiresIn: '30d' }
+    );
+    
+    res.json({ token, user: { id: user.id, email: user.email, is_premium: user.is_premium } });
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
+
+// Kullanıcı Profilini ve Rozetlerini Getir
+app.get('/api/user/profile', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const userRes = await pool.query('SELECT id, email, is_premium, created_at FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ hata: 'Kullanıcı bulunamadı' });
+    const userProfile = userRes.rows[0];
+
+    const badgesRes = await pool.query(`
+      SELECT b.name, b.description, b.icon_url, ub.earned_at 
+      FROM user_badges ub 
+      JOIN badges b ON ub.badge_id = b.id 
+      WHERE ub.user_id = $1
+    `, [userId]);
+    
+    const historyRes = await pool.query('SELECT COUNT(*) as total_read FROM user_read_history WHERE user_id = $1', [userId]);
+
+    res.json({
+      ...userProfile,
+      total_stories_read: parseInt(historyRes.rows[0].total_read),
+      badges: badgesRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ hata: err.message });
+  }
+});
+
+// Hikaye Okumayı Tamamlama (Limit Kontrolü ve Rozet Kazanımı)
+app.post('/api/user/read-story', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { story_id } = req.body;
+    
+    // 1. Limit Kontrolü (Ücretsiz kullanıcılar günde 1 tane okuyabilir)
+    if (!req.user.is_premium) {
+      const todayRes = await pool.query(
+        'SELECT COUNT(*) as today_count FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE', 
+        [userId]
+      );
+      if (parseInt(todayRes.rows[0].today_count) >= 1) {
+        return res.status(403).json({ 
+          hata: 'Günlük ücretsiz okuma limitine ulaştınız. Sınırsız okuma için Premium\'a geçin.', 
+          limit_reached: true 
+        });
+      }
+    }
+
+    // 2. Geçmişe Ekle (Aynı gün aynı kitabı bir kez kaydetmek için ON CONFLICT)
+    await pool.query(
+      'INSERT INTO user_read_history (user_id, story_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, story_id]
+    );
+
+    // 3. Rozet Kontrolleri (Oyunlaştırma)
+    const historyRes = await pool.query('SELECT COUNT(*) as total_read FROM user_read_history WHERE user_id = $1', [userId]);
+    const totalRead = parseInt(historyRes.rows[0].total_read);
+    
+    let newBadges = [];
+
+    // Yardımcı Fonksiyon: Rozet Ekleme
+    const awardBadge = async (code) => {
+      const badgeRes = await pool.query('SELECT id, name FROM badges WHERE code = $1', [code]);
+      if (badgeRes.rows.length > 0) {
+        const badgeId = badgeRes.rows[0].id;
+        const awardRes = await pool.query(
+          'INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+          [userId, badgeId]
+        );
+        if (awardRes.rowCount > 0) newBadges.push(badgeRes.rows[0].name);
+      }
+    };
+
+    if (totalRead === 1) await awardBadge('FIRST_STEP');
+    if (totalRead === 5) await awardBadge('BOOKWORM');
+    
+    res.json({ mesaj: 'Hikaye okuma başarıyla kaydedildi.', new_badges_earned: newBadges });
   } catch (err) {
     res.status(500).json({ hata: err.message });
   }
