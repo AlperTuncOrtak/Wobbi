@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wobbi İçerik Yönetimi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800" x-data="adminPanel()">
+    
+    <!-- LOGIN EKRANI -->
+    <div x-show="!token" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-96 text-center">
+            <h1 class="text-3xl font-bold text-orange-500 mb-6">Wobbi Admin</h1>
+            <input type="password" x-model="password" placeholder="Şifrenizi Girin" 
+                   class="w-full p-3 border rounded-lg mb-4 focus:ring-2 focus:ring-orange-400 outline-none">
+            <button @click="login()" class="w-full bg-orange-500 text-white font-bold py-3 rounded-lg hover:bg-orange-600 transition">Giriş Yap</button>
+            <p x-text="loginMessage" class="mt-4 text-red-500 font-semibold"></p>
+        </div>
+    </div>
+
+    <!-- ANA PANEL -->
+    <div x-show="token" class="max-w-4xl mx-auto py-10 px-4" style="display: none;">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800">Hoşgeldin Furkan! 🎨</h1>
+            <button @click="logout()" class="text-red-500 font-bold hover:underline">Çıkış Yap</button>
+        </div>
+
+        <!-- SEKMELER -->
+        <div class="flex space-x-4 mb-6 border-b pb-2">
+            <button @click="tab = 'character'" :class="tab === 'character' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-gray-500'" class="pb-2 font-bold px-2">1. Karakter Ekle</button>
+            <button @click="tab = 'story'" :class="tab === 'story' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-500'" class="pb-2 font-bold px-2">2. Kitap Ekle</button>
+            <button @click="tab = 'page'" :class="tab === 'page' ? 'text-green-500 border-b-2 border-green-500' : 'text-gray-500'" class="pb-2 font-bold px-2">3. Sayfa & Ses Ekle</button>
+        </div>
+
+        <!-- YÜKLENİYOR BİLDİRİMİ -->
+        <div x-show="loading" class="fixed top-5 right-5 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-xl animate-pulse">
+            İşlem yapılıyor, lütfen bekle...
+        </div>
+
+        <!-- MESAJ BİLDİRİMİ -->
+        <div x-show="message" x-text="message" class="mb-4 p-4 rounded-lg font-bold" :class="messageColor"></div>
+
+        <!-- KARAKTER EKLEME FORMU -->
+        <div x-show="tab === 'character'" class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-xl font-bold mb-4">Yeni Karakter Oluştur</h2>
+            <div class="space-y-4">
+                <input type="text" x-model="char.name" placeholder="Karakter Adı (Örn: Tilki Tobi)" class="w-full p-3 border rounded-lg">
+                <textarea x-model="char.bio" placeholder="Kısa Biyografi" class="w-full p-3 border rounded-lg h-24"></textarea>
+                <div class="flex items-center space-x-4">
+                    <label class="font-semibold">Tema Rengi:</label>
+                    <input type="color" x-model="char.theme_color" class="h-10 w-20 border rounded cursor-pointer">
+                </div>
+                <div class="border-2 border-dashed p-4 text-center rounded-lg bg-gray-50">
+                    <label class="block mb-2 font-semibold">Avatar Resmi Seç (PNG/JPG)</label>
+                    <input type="file" @change="uploadFile($event, 'char_avatar')" accept="image/*" class="w-full">
+                </div>
+                <button @click="saveCharacter()" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600">Karakteri Kaydet</button>
+            </div>
+        </div>
+
+        <!-- HİKAYE EKLEME FORMU -->
+        <div x-show="tab === 'story'" class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-xl font-bold mb-4">Yeni Kitap Oluştur</h2>
+            <div class="space-y-4">
+                <input type="text" x-model="story.title" placeholder="Kitap Başlığı" class="w-full p-3 border rounded-lg">
+                <select x-model="story.character_id" class="w-full p-3 border rounded-lg">
+                    <option value="">-- Kime Ait? (Karakter Seç) --</option>
+                    <template x-for="c in charactersList" :key="c.id">
+                        <option :value="c.id" x-text="c.name"></option>
+                    </template>
+                </select>
+                <input type="text" x-model="story.category" placeholder="Kategori (Örn: Macera, Uyku)" class="w-full p-3 border rounded-lg">
+                <input type="number" x-model="story.duration_minutes" placeholder="Tahmini Süre (Dakika)" class="w-full p-3 border rounded-lg">
+                <textarea x-model="story.description" placeholder="Hikayenin kısa arka kapağı (açıklaması)" class="w-full p-3 border rounded-lg h-24"></textarea>
+                
+                <div class="border-2 border-dashed p-4 text-center rounded-lg bg-gray-50">
+                    <label class="block mb-2 font-semibold">Kitap Kapağı Seç (Dikdörtgen PNG/JPG)</label>
+                    <input type="file" @change="uploadFile($event, 'story_cover')" accept="image/*" class="w-full">
+                </div>
+                <button @click="saveStory()" class="bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600">Kitabı Kaydet</button>
+            </div>
+        </div>
+
+        <!-- SAYFA EKLEME FORMU -->
+        <div x-show="tab === 'page'" class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-xl font-bold mb-4">Hikayeye Sayfa Ekle</h2>
+            <div class="space-y-4">
+                <select x-model="page.story_id" class="w-full p-3 border rounded-lg">
+                    <option value="">-- Hangi Kitaba Sayfa Eklenecek? --</option>
+                    <template x-for="s in storiesList" :key="s.id">
+                        <option :value="s.id" x-text="s.title"></option>
+                    </template>
+                </select>
+                <input type="number" x-model="page.page_number" placeholder="Sayfa Numarası (Örn: 1)" class="w-full p-3 border rounded-lg">
+                <textarea x-model="page.text_content" placeholder="Bu sayfada okunacak asıl metin..." class="w-full p-3 border rounded-lg h-32"></textarea>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="border-2 border-dashed p-4 text-center rounded-lg bg-gray-50">
+                        <label class="block mb-2 font-semibold text-sm">Sayfa Çizimi (Görsel)</label>
+                        <input type="file" @change="uploadFile($event, 'page_image')" accept="image/*" class="w-full text-sm">
+                    </div>
+                    <div class="border-2 border-dashed p-4 text-center rounded-lg bg-gray-50">
+                        <label class="block mb-2 font-semibold text-sm">Seslendirme (MP3)</label>
+                        <input type="file" @change="uploadFile($event, 'page_audio')" accept="audio/mpeg" class="w-full text-sm">
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 p-4 border border-yellow-200 rounded-lg">
+                    <h3 class="font-bold text-yellow-700 mb-2">🪄 Sihirli Kelimeler (JSON Formatı)</h3>
+                    <p class="text-xs text-yellow-600 mb-2">Örnek: {"ormana": {"translation_en": "Forest", "audio_en": "forest.mp3"}}</p>
+                    <textarea x-model="page.magic_words" class="w-full p-3 border rounded-lg h-24 font-mono text-sm" placeholder="{}"></textarea>
+                </div>
+                
+                <div class="bg-purple-50 p-4 border border-purple-200 rounded-lg">
+                    <h3 class="font-bold text-purple-700 mb-2">🎤 Karaoke Zamanlamaları (JSON Formatı)</h3>
+                    <p class="text-xs text-purple-600 mb-2">Örnek: [{"word": "Küçük", "start_time": 0.0, "end_time": 0.5}]</p>
+                    <textarea x-model="page.word_timestamps" class="w-full p-3 border rounded-lg h-24 font-mono text-sm" placeholder="[]"></textarea>
+                </div>
+
+                <button @click="savePage()" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600">Sayfayı Kaydet</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('adminPanel', () => ({
+                token: localStorage.getItem('wobbi_token') || '',
+                password: '',
+                loginMessage: '',
+                tab: 'character',
+                loading: false,
+                message: '',
+                messageColor: 'bg-green-100 text-green-700',
+                
+                charactersList: [],
+                storiesList: [],
+
+                char: { name: '', bio: '', theme_color: '#000000', avatar_url: '' },
+                story: { title: '', category: '', character_id: '', duration_minutes: '', description: '', cover_url: '' },
+                page: { story_id: '', page_number: '', text_content: '', image_url: '', audio_url: '', magic_words: '{}', word_timestamps: '[]' },
+
+                init() {
+                    if (this.token) this.fetchDropdownData();
+                },
+
+                showMessage(msg, isError = false) {
+                    this.message = msg;
+                    this.messageColor = isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+                    setTimeout(() => { this.message = ''; }, 4000);
+                },
+
+                async login() {
+                    try {
+                        const res = await fetch('/api/admin/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ password: this.password })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.token = data.token;
+                            localStorage.setItem('wobbi_token', this.token);
+                            this.fetchDropdownData();
+                        } else {
+                            this.loginMessage = data.hata || 'Giriş Başarısız';
+                        }
+                    } catch (e) {
+                        this.loginMessage = 'Sunucuya bağlanılamadı.';
+                    }
+                },
+
+                logout() {
+                    this.token = '';
+                    localStorage.removeItem('wobbi_token');
+                },
+
+                async fetchDropdownData() {
+                    try {
+                        const [charRes, storyRes] = await Promise.all([
+                            fetch('/api/characters'),
+                            fetch('/api/stories')
+                        ]);
+                        this.charactersList = await charRes.json();
+                        this.storiesList = await storyRes.json();
+                    } catch (e) {
+                        console.error("Dropdown verileri çekilemedi.");
+                    }
+                },
+
+                async uploadFile(event, field) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    this.loading = true;
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        const res = await fetch('/api/admin/upload', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.token}` },
+                            body: formData
+                        });
+                        const data = await res.json();
+                        
+                        if (res.ok) {
+                            if (field === 'char_avatar') this.char.avatar_url = data.url;
+                            if (field === 'story_cover') this.story.cover_url = data.url;
+                            if (field === 'page_image') this.page.image_url = data.url;
+                            if (field === 'page_audio') this.page.audio_url = data.url;
+                            this.showMessage('✅ Dosya başarıyla yüklendi!');
+                        } else {
+                            this.showMessage(data.hata, true);
+                        }
+                    } catch (e) {
+                        this.showMessage('Yükleme sırasında hata oluştu.', true);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async apiCall(endpoint, bodyData) {
+                    this.loading = true;
+                    try {
+                        const res = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify(bodyData)
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showMessage('✅ Kayıt başarıyla eklendi!');
+                            this.fetchDropdownData(); // Listeleri güncelle
+                            return true;
+                        } else {
+                            this.showMessage(data.hata, true);
+                            return false;
+                        }
+                    } catch (e) {
+                        this.showMessage('Sunucu hatası.', true);
+                        return false;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async saveCharacter() {
+                    if(await this.apiCall('/api/admin/characters', this.char)) {
+                        this.char = { name: '', bio: '', theme_color: '#000000', avatar_url: '' };
+                    }
+                },
+
+                async saveStory() {
+                    if(await this.apiCall('/api/admin/stories', this.story)) {
+                        this.story = { title: '', category: '', character_id: '', duration_minutes: '', description: '', cover_url: '' };
+                    }
+                },
+
+                async savePage() {
+                    // JSON parsing için güvenli bir yapı
+                    let magicWordsParsed = {}, wordTimestampsParsed = [];
+                    try {
+                        magicWordsParsed = JSON.parse(this.page.magic_words || '{}');
+                        wordTimestampsParsed = JSON.parse(this.page.word_timestamps || '[]');
+                    } catch (e) {
+                        return this.showMessage('HATA: Sihirli kelimeler veya Karaoke JSON formatı hatalı!', true);
+                    }
+
+                    const payload = { ...this.page, magic_words: magicWordsParsed, word_timestamps: wordTimestampsParsed };
+                    if(await this.apiCall('/api/admin/story_pages', payload)) {
+                        this.page.page_number = '';
+                        this.page.text_content = '';
+                        this.page.image_url = '';
+                        this.page.audio_url = '';
+                        this.page.magic_words = '{}';
+                        this.page.word_timestamps = '[]';
+                    }
+                }
+            }));
+        });
+    </script>
+</body>
+</html>
