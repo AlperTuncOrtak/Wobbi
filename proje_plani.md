@@ -130,6 +130,15 @@ v1.1 (Ebeveyn Ses Klonlama):
 - Son okunan sayfa kaydı
 - Offline pre-load (indirme butonu)
 
+### 🏅 Oyunlaştırma ve Rozet Sistemi
+- Çocukları okumaya teşvik etmek için başarımlar (Achievements).
+- **Örnek Rozetler:**
+  - *İlk Adım:* İlk hikayeyi bitirdiğinde.
+  - *Kitap Kurdu:* 5 hikaye bitirdiğinde.
+  - *Kaşif:* 3 farklı kategoriden hikaye okuduğunda.
+  - *Gece Kuşu:* Uyku modunda 3 gece üst üste hikaye dinlediğinde.
+- Rozetler doğrudan kullanıcı (çocuk) profiline işlenir ve profil ekranında sergilenir.
+
 ### 🔓 Freemium Model
 | Kullanıcı Tipi | Ne Alır? |
 |---------------|---------|
