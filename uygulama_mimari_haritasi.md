@@ -87,7 +87,7 @@ Uygulamanın en altında her zaman görünen 4 ana menü butonu olacak:
 ---
 
 ## 🧱 Uygulama İskeleti (Klasör Yapısı Planı)
-Koda döktüğümüzde React (PWA) iskeletimiz şu şekilde olacak:
+Koda döktüğümüzde React Native (Expo) iskeletimiz şu şekilde olacak:
 
 ```text
 src/

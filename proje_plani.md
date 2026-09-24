@@ -1,6 +1,6 @@
 # 📚 Çocuk Okuma Uygulaması — Güncellenmiş Master Plan
 
-> **MVP Hedef:** 5–8 yaş | **Dil:** TR + EN | **Model:** Freemium | **Strateji:** PWA → Flutter
+> **MVP Hedef:** 5–8 yaş | **Dil:** TR + EN | **Model:** Freemium | **Strateji:** React Native (Cross-Platform)
 
 ---
 
@@ -32,10 +32,10 @@
 
 ## 🏗️ Teknik Mimari
 
-### 📱 Frontend (2 Aşama)
+### 📱 Frontend
 ```
-Aşama 1 — PWA (React + Vite)
-  ├── Doğrulama ve kullanıcı testi için
+Aşama 1 — React Native (Expo)
+  ├── Doğrulama ve kullanıcı testi için iOS ve Android ortak kod tabanı.
   ├── Mağaza maliyeti yok (Apple 99$ + Google 25$ sonraya kalıyor)
   └── Mobile-first, tam ekran, uygulama hissi
 
@@ -194,9 +194,9 @@ v1.1 (Ebeveyn Ses Klonlama):
 
 ---
 
-### Faz 1 — PWA MVP
+### Faz 1 — React Native MVP
 **Yazılım:**
-- [ ] React + Vite kurulumu (mobile-first PWA)
+- [ ] React Native (Expo) kurulumu (iOS + Android)
 - [ ] Reels formatı (dikey scroll snap, ses otomatik başlatma)
 - [ ] Klasik okuma ekranı (metin + görsel + ses)
 - [ ] Karaoke kelime vurgusu (word timestamp senkronizasyonu)
