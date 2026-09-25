@@ -1,56 +1,26 @@
-# Welcome to your Expo app 👋
+﻿# Wobbi (Fablefox) App 🦊
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+> **CRITICAL PROJECT RULES (FOR ALL CONTRIBUTORS & AGENTS)**
+> - Do not change the screen design.
+> - Preserve the existing UI exactly.
+> - Keep the existing Stream audio flow intact.
+> - Do not expose any secrets in the mobile app.
+> - Develop Feature-by-Feature (Setup -> Test -> Next).
 
-## Get started
+## ⚙️ Tech Stack
+- **[React Native](https://reactnative.dev/) & [Expo](https://expo.dev/)**: Universal native application framework.
+- **[TypeScript](https://www.typescriptlang.org/)**: Strongly typed programming language.
+- **[NativeWind](https://www.nativewind.dev/)**: Tailwind CSS for React Native.
+- **[Zustand](https://docs.pmnd.rs/zustand/getting-started/introduction)**: Fast and scalable state management.
+- **[Clerk](https://clerk.com/)**: Complete user management and authentication.
+- **[Stream](https://getstream.io/)**: Real-time audio infrastructure for AI voice interactions.
+- **[PostHog](https://posthog.com/)**: Product analytics platform.
+- **[CodeRabbit](https://coderabbit.ai/)**: AI-powered code review platform.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🔋 Features
+- 👉 **Onboarding Flow:** A seamless mobile sequence for goal setting.
+- 👉 **Auth Pages:** Secure signup/signin using Clerk.
+- 👉 **Real-Time AI Teacher:** Immersive speak-and-respond practice using Stream Voice Agents.
+- 👉 **Lesson Interface:** Core learning engine and story reading flow.
+- 👉 **State Management:** Clean logic handled by Zustand.
+- 👉 **Analytics & Review:** Monitoring via PostHog and AI PR reviews via CodeRabbit.
