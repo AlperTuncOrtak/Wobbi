@@ -1,118 +1,155 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { images } from '@/constants/images';
-import * as WebBrowser from 'expo-web-browser';
-import { useOAuth } from '@clerk/expo';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  withSequence,
+  FadeInDown,
+  FadeIn,
+  Easing
+} from 'react-native-reanimated';
+import { Button } from '@/components/ui/Button';
 
-WebBrowser.maybeCompleteAuthSession();
+const { width, height } = Dimensions.get('window');
 
-export default function OnboardingScreen() {
+export default function WelcomeScreen() {
   const router = useRouter();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-  const onSignInWithGoogle = React.useCallback(async () => {
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow();
-      if (createdSessionId && setActive) {
-        setActive({ session: createdSessionId });
-      }
-    } catch (err) {
-      alert("Test Modu: Giris basarisiz oldu veya Google yapilandirilmadi.");
-    }
+  // Maskot Süzülme (Floating) Animasyonu
+  const floatingY = useSharedValue(0);
+
+  useEffect(() => {
+    floatingY.value = withRepeat(
+      withSequence(
+        withTiming(-20, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1, // Sonsuz tekrar
+      true // Geri dön
+    );
   }, []);
 
+  const animatedMascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: floatingY.value }]
+  }));
+
   return (
-    <SafeAreaView style={[styles.container, Platform.OS === 'web' && styles.webContainer]} edges={['top', 'bottom']}>
-      <View className="flex-1 px-6">
-        {/* Logo header */}
-        <View className="flex-row items-center justify-center gap-2 mt-4">
-          <Image source={images.mascotLogo} style={{ width: 40, height: 40 }} resizeMode="contain" />
-          <Text className="font-poppins-semibold text-xl text-text-primary">
-            wobbi
-          </Text>
+    <View style={styles.container}>
+      {/* Büyülü Uzay Arka Planı */}
+      <LinearGradient
+        colors={['#0F1020', '#1A1C3A', '#2D224A']}
+        style={styles.background}
+      />
+
+      <SafeAreaView style={styles.safeArea}>
+        
+        {/* Üst Kısım: Logo ve Maskot */}
+        <View style={styles.topSection}>
+          <Animated.Text entering={FadeIn.delay(300).duration(1000)} style={styles.logo}>
+            Wobbi
+          </Animated.Text>
+          
+          <Animated.View style={[styles.mascotContainer, animatedMascotStyle]}>
+            {/* Furkan'ın çizimleri gelene kadar geçici maskot */}
+            <Image 
+              source={{ uri: 'https://api.dicebear.com/7.x/bottts/png?seed=zumi&backgroundColor=transparent' }} 
+              style={styles.mascotImage} 
+              resizeMode="contain"
+            />
+          </Animated.View>
         </View>
 
-        {/* Hero heading */}
-        <Text className="font-poppins-bold text-[38px] text-text-primary leading-[44px] mt-8">
-          {"Senin AI hikaye\n"}
-          <Text className="text-lingua-purple">arkadasin.</Text>
-        </Text>
+        {/* Alt Kısım: Yazılar ve Butonlar */}
+        <View style={styles.bottomSection}>
+          <Animated.Text entering={FadeInDown.delay(500).duration(800)} style={styles.title}>
+            Büyülü Bir Dünyaya Hazır mısın?
+          </Animated.Text>
+          <Animated.Text entering={FadeInDown.delay(700).duration(800)} style={styles.subtitle}>
+            Her gece senin seçtiğin kahramanlarla yepyeni ve sihirli uyku masalları yarat.
+          </Animated.Text>
 
-        {/* Subtitle */}
-        <Text className="font-poppins text-base text-text-secondary mt-3">
-          Gercek konusmalar, kisisellestirilmis masallar, istedigin zaman, istedigin yerde.
-        </Text>
-
-        {/* Mascot illustration with speech bubbles */}
-        <View className="flex-1 justify-center items-center my-6 relative">
-          <Image
-            source={images.mascotWelcome}
-            style={{ width: 256, height: 256 }}
-            resizeMode="contain"
-          />
-
-          <View className="absolute bg-white rounded-2xl px-4 py-2.5 left-2 top-[25%]" style={styles.shadow}>
-            <Text className="font-poppins-medium text-sm text-text-primary">
-              Merhaba!
-            </Text>
-          </View>
-
-          <View className="absolute bg-white rounded-2xl px-4 py-2.5 right-2 top-[15%]" style={styles.shadow}>
-            <Text className="font-poppins-medium text-sm text-text-primary">
-              Nasilsin?
-            </Text>
-          </View>
+          <Animated.View entering={FadeInDown.delay(900).duration(800)} style={styles.buttonContainer}>
+            <Button 
+              title="Maceraya Başla" 
+              size="lg" 
+              variant="primary"
+              onPress={() => router.push('/(tabs)')}
+            />
+            <Button 
+              title="Giriş Yap" 
+              size="lg" 
+              variant="ghost"
+              style={{ marginTop: 12 }}
+              onPress={() => router.push('/(auth)/sign-in')}
+            />
+          </Animated.View>
         </View>
 
-        {/* CTA button */}
-        <TouchableOpacity
-          className="bg-lingua-purple rounded-2xl flex-row items-center justify-center mt-2 mb-4 py-4"
-          activeOpacity={0.85}
-          onPress={() => router.push('/(auth)/sign-up')}
-        >
-          <Text className="font-poppins-semibold text-[17px] text-white">
-            Basla
-          </Text>
-          <ChevronRight size={22} color="#fff" className="ml-2" />
-        </TouchableOpacity>
-
-        {/* Link to new onboarding screen */}
-        <TouchableOpacity
-          className="bg-gray-100 rounded-2xl flex-row items-center justify-center mb-6 py-4"
-          activeOpacity={0.85}
-          onPress={() => router.push('/onboarding')}
-        >
-          <Text className="font-poppins-semibold text-[17px] text-lingua-purple">
-            View New Onboarding
-          </Text>
-          <ChevronRight size={22} color="#6C48FF" className="ml-2" />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  background: { ...StyleSheet.absoluteFillObject },
+  safeArea: { flex: 1, justifyContent: 'space-between' },
+  
+  topSection: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    paddingTop: 40,
   },
-  webContainer: {
-    maxWidth: 420,
+  logo: {
+    fontFamily: 'Chewy_400Regular',
+    fontSize: 48,
+    color: '#FFFFFF',
+    letterSpacing: 2,
+    marginBottom: 40,
+  },
+  mascotContainer: {
+    width: width * 0.7,
+    height: width * 0.7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#7D67FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  mascotImage: {
     width: '100%',
-    alignSelf: 'center',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#e5e7eb',
+    height: '100%',
   },
-  shadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+  
+  bottomSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
+  title: {
+    fontFamily: 'Chewy_400Regular',
+    fontSize: 36,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 42,
+  },
+  subtitle: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 16,
+    color: '#A0A3BD',
+    textAlign: 'center',
+    marginBottom: 40,
+    paddingHorizontal: 16,
+    lineHeight: 24,
+  },
+  buttonContainer: {
+    width: '100%',
+  }
 });

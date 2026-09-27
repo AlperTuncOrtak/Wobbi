@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ScrollView, FlatList, Image, TouchableOpacity, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getBooksByLanguage } from '@/data/books';
 import { useLanguageStore } from '@/store/languageStore';
-import { colors, textStyles } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Lock, PlayCircle, CheckCircle2 } from 'lucide-react-native';
 
@@ -69,7 +69,7 @@ export default function BooksScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={textStyles.h2}>Masal Kitaplığı</Text>
+        <Text style={{ fontFamily: 'Poppins_700Bold', fontSize: 22, lineHeight: 30 }}>Masal Kitaplığı</Text>
         <Text style={styles.subtitle}>İstediğin masalı seç ve okumaya başla!</Text>
       </View>
 
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   subtitle: {
-    ...textStyles.body,
-    color: colors.neutral.textSecondary,
+    ...{ fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 22 },
+    color: '#64748B',
     marginTop: 4,
   },
   scrollContent: {
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   categoryTitle: {
-    ...textStyles.h3,
+    ...{ fontFamily: 'Poppins_600SemiBold', fontSize: 18, lineHeight: 26 },
     paddingHorizontal: 20,
     marginBottom: 12,
   },
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     height: CARD_WIDTH * 1.3,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: colors.neutral.border,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   coverImage: {
     width: '100%',
@@ -160,24 +160,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bookTitle: {
-    ...textStyles.button,
-    color: colors.neutral.textPrimary,
+    ...{ fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
+    color: '#1E293B',
     marginBottom: 6,
   },
   progressTrack: {
     height: 4,
-    backgroundColor: colors.neutral.border,
+    backgroundColor: 'rgba(0,0,0,0.08)',
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 4,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.primary.purple,
+    backgroundColor: '#6C4EF5',
     borderRadius: 2,
   },
   progressText: {
-    ...textStyles.caption,
-    color: colors.neutral.textSecondary,
+    ...{ fontFamily: 'Poppins_400Regular', fontSize: 12 },
+    color: '#64748B',
   },
 });

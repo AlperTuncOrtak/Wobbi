@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getBooksByLanguage, STORY_BOOKS } from '@/data/books';
 import { getChaptersByBookId } from '@/data/chapters';
-import { colors, textStyles } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Play, Lock } from 'lucide-react-native';
 import { Link } from 'expo-router';
@@ -20,9 +20,9 @@ export default function BookDetailScreen() {
   if (!book) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={textStyles.body}>Kitap bulunamadı.</Text>
+        <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 22 }}>Kitap bulunamadı.</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.primary.purple }}>Geri Dön</Text>
+          <Text style={{ color: '#6C4EF5' }}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
@@ -86,7 +86,7 @@ export default function BookDetailScreen() {
                         <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
                       </View>
                     ) : isCurrent ? (
-                      <View style={[styles.statusIcon, { backgroundColor: colors.primary.purple }]}>
+                      <View style={[styles.statusIcon, { backgroundColor: '#6C4EF5' }]}>
                         <Play size={14} color="#fff" fill="#fff" />
                       </View>
                     ) : (
@@ -148,25 +148,25 @@ const styles = StyleSheet.create({
     right: 20,
   },
   title: {
-    ...textStyles.h1,
-    color: colors.neutral.textPrimary,
+    ...{ fontFamily: 'Poppins_700Bold', fontSize: 28, lineHeight: 36 },
+    color: '#1E293B',
     marginBottom: 8,
   },
   description: {
-    ...textStyles.body,
-    color: colors.neutral.textSecondary,
+    ...{ fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 22 },
+    color: '#64748B',
   },
   chaptersContainer: {
     paddingHorizontal: 20,
     paddingTop: 10,
   },
   chaptersHeader: {
-    ...textStyles.h3,
+    ...{ fontFamily: 'Poppins_600SemiBold', fontSize: 18, lineHeight: 26 },
     marginBottom: 20,
   },
   noChapters: {
-    ...textStyles.body,
-    color: colors.neutral.textSecondary,
+    ...{ fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 22 },
+    color: '#64748B',
     fontStyle: 'italic',
   },
   chapterCard: {
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderWidth: 1.5,
-    borderColor: colors.neutral.border,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -198,21 +198,21 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   chapterNumber: {
-    ...textStyles.h3,
-    color: colors.neutral.textPrimary,
+    ...{ fontFamily: 'Poppins_600SemiBold', fontSize: 18, lineHeight: 26 },
+    color: '#1E293B',
   },
   chapterInfo: {
     flex: 1,
     paddingRight: 10,
   },
   chapterTitle: {
-    ...textStyles.button,
-    color: colors.neutral.textPrimary,
+    ...{ fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
+    color: '#1E293B',
     marginBottom: 4,
   },
   chapterDesc: {
-    ...textStyles.caption,
-    color: colors.neutral.textSecondary,
+    ...{ fontFamily: 'Poppins_400Regular', fontSize: 12 },
+    color: '#64748B',
   },
   chapterStatus: {
     marginLeft: 'auto',

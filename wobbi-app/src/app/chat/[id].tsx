@@ -1,287 +1,254 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Mic, PhoneOff, Type, Volume2, Sparkles } from 'lucide-react-native';
-import { colors, textStyles } from '@/constants/theme';
-import { images } from '@/constants/images';
-import { usePostHog } from 'posthog-react-native';
-import { useLanguageStore } from '@/store/languageStore';
-import { useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Mic, MicOff, Phone, Volume2, VolumeX, ChevronLeft, MoreVertical } from 'lucide-react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  withSequence,
+  FadeIn,
+  FadeInDown
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { useThemeStore } from '@/store/themeStore';
+import { Colors } from '@/constants/theme';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function VoiceChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const posthog = usePostHog();
-  const { selectedLanguage } = useLanguageStore();
-  const startTimeRef = useRef(Date.now());
-
-  useEffect(() => {
-    posthog?.capture('lesson_started', {
-      lesson_id: id,
-      language: selectedLanguage,
-      lesson_number: 1,
-    });
-
-    return () => {
-      const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      posthog?.capture('lesson_abandoned', {
-        lesson_id: id,
-        time_into_lesson_seconds: timeSpent,
-        last_question_index: 0,
-      });
-    };
-  }, []);
   
-  // Mock states for the UI
-  const [isListening, setIsListening] = useState(false);
-  const [showSubtitles, setShowSubtitles] = useState(true);
-  const [callTimer, setCallTimer] = useState(0);
+  const { theme } = useThemeStore();
+  const colors = Colors[theme];
+  const isDay = theme === 'day';
 
-  // Timer effect
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(true);
+
+  // Zumi / Avatar etrafında titreşim (Pulse) Animasyonu
+  const pulse = useSharedValue(1);
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCallTimer(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.25, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
+      ),
+      -1, 
+      true
+    );
   }, []);
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const animatedPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+    opacity: 1.5 - pulse.value,
+  }));
+
+  const character = {
+    name: id === 'zumi' ? 'Zumi' : 'Bilge Baykuş',
+    role: id === 'zumi' ? 'Uzaylı Dostun' : 'Ormanın Rehberi',
+    // Avatarı biraz daha sevimli göstermek için dicebear kullanıyoruz
+    image: `https://api.dicebear.com/7.x/bottts/png?seed=${id || 'zumi'}`, 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header Info */}
-      <View style={styles.header}>
-        <View style={styles.timerBadge}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.timerText}>{formatTime(callTimer)}</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={styles.safeArea}>
+        
+        {/* -- ÜST BÖLÜM -- */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={[styles.iconButton, { borderColor: colors.border }]} 
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={24} color={colors.text} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Sesli Görüşme</Text>
+            <Text style={[styles.headerStatus, { color: colors.primary }]}>Bağlı • 02:14</Text>
+          </View>
+
+          <TouchableOpacity style={[styles.iconButton, { borderColor: colors.border }]}>
+            <MoreVertical size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.characterName}>Uzaylı Zumi</Text>
-        <Text style={styles.languageText}>İspanyolca Pratik</Text>
-      </View>
 
-      {/* Mission / Goal Bubble */}
-      <View style={styles.missionContainer}>
-        <Sparkles size={16} color={colors.primary.purple} style={{ marginRight: 6 }} />
-        <Text style={styles.missionText}>Görev: Zumi'ye "Hola" (Merhaba) de!</Text>
-      </View>
-
-      {/* Center Mascot (Teacher Placeholder) */}
-      <View style={styles.mascotContainer}>
-        <View style={[styles.mascotGlow, isListening && styles.mascotGlowActive]} />
-        <Image 
-          source={images.mascotWelcome} 
-          style={styles.mascotImage}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* Chat Bubbles / Subtitles */}
-      <View style={styles.subtitlesContainer}>
-        {showSubtitles && (
-          <>
-            {/* Zumi's speech bubble */}
-            <View style={styles.bubbleZumi}>
-              <Text style={styles.bubbleZumiText}>¡Hola! ¿Eres mi nuevo amigo?</Text>
-              <Text style={styles.bubbleZumiTranslation}>(Merhaba! Sen benim yeni arkadaşım mısın?)</Text>
+        {/* -- KARAKTER AVATARI -- */}
+        <View style={styles.centerSection}>
+          <View style={styles.avatarContainer}>
+            <Animated.View style={[
+              styles.pulseRing, 
+              { backgroundColor: colors.primary },
+              animatedPulseStyle
+            ]} />
+            <View style={[styles.avatarWrapper, { borderColor: colors.primary }]}>
+              <Image source={{ uri: character.image }} style={styles.avatarImage} />
             </View>
+          </View>
+          
+          <Animated.Text entering={FadeInDown.delay(200)} style={[styles.charName, { color: colors.text }]}>
+            {character.name}
+          </Animated.Text>
+          <Animated.Text entering={FadeInDown.delay(300)} style={[styles.charRole, { color: colors.textMuted }]}>
+            {character.role}
+          </Animated.Text>
+        </View>
 
-            {/* User's speech bubble (if listening/speaking) */}
-            <View style={[styles.bubbleUser, { opacity: isListening ? 1 : 0.4 }]}>
-              <Text style={styles.bubbleUserText}>
-                {isListening ? "Dinleniyor..." : "Konuşmak için mikrofona bas..."}
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
+        {/* -- ALT YAZILAR (GLASSMORPHISM) -- */}
+        <Animated.View entering={FadeIn.delay(500)} style={styles.subtitlesContainer}>
+          <BlurView 
+            intensity={isDay ? 40 : 20} 
+            tint={isDay ? "light" : "dark"} 
+            style={[styles.subtitlesGlass, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
+          >
+            <Text style={[styles.subtitlesText, { color: colors.text }]}>
+              "Merhaba Leo! Bugün yıldızların ötesinde harika bir macera bizi bekliyor. Hazır mısın?"
+            </Text>
+          </BlurView>
+        </Animated.View>
 
-      {/* Bottom Controls */}
-      <View style={styles.controlsContainer}>
-        {/* Subtitles Toggle */}
-        <TouchableOpacity 
-          style={styles.secondaryButton}
-          onPress={() => setShowSubtitles(!showSubtitles)}
-        >
-          <Type size={24} color="#fff" />
-        </TouchableOpacity>
+        {/* -- ARAMA KONTROLLERİ -- */}
+        <View style={styles.controlsSection}>
+          <TouchableOpacity 
+            style={[
+              styles.controlButton, 
+              { 
+                backgroundColor: isMuted ? colors.primary : colors.cardBg, 
+                borderColor: colors.border 
+              }
+            ]}
+            onPress={() => setIsMuted(!isMuted)}
+          >
+            {isMuted ? <MicOff size={24} color="#FFF" /> : <Mic size={24} color={colors.text} />}
+          </TouchableOpacity>
 
-        {/* Main Microphone Button */}
-        <TouchableOpacity 
-          style={[styles.micButton, isListening && styles.micButtonActive]}
-          onPressIn={() => setIsListening(true)}
-          onPressOut={() => setIsListening(false)}
-          activeOpacity={0.9}
-        >
-          <Mic size={40} color="#fff" />
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.hangupButton, { shadowColor: '#EF4444' }]}
+            onPress={() => router.back()}
+          >
+            <Phone size={32} color="#FFF" fill="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+          </TouchableOpacity>
 
-        {/* End Call Button */}
-        <TouchableOpacity 
-          style={[styles.secondaryButton, { backgroundColor: '#ef4444' }]}
-          onPress={() => router.back()}
-        >
-          <PhoneOff size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          <TouchableOpacity 
+            style={[
+              styles.controlButton, 
+              { 
+                backgroundColor: isSpeaker ? colors.primary : colors.cardBg, 
+                borderColor: colors.border 
+              }
+            ]}
+            onPress={() => setIsSpeaker(!isSpeaker)}
+          >
+            {isSpeaker ? <Volume2 size={24} color="#FFF" /> : <VolumeX size={24} color={colors.text} />}
+          </TouchableOpacity>
+        </View>
+
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A', // Dark blue/night background for focus
+  container: { flex: 1 },
+  safeArea: { flex: 1, justifyContent: 'space-between' },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
-  header: {
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    marginRight: 6,
-  },
-  timerText: {
-    ...textStyles.caption,
-    color: '#fff',
-    fontVariant: ['tabular-nums'],
-  },
-  characterName: {
-    ...textStyles.h2,
-    color: '#fff',
-  },
-  languageText: {
-    ...textStyles.body,
-    color: '#94a3b8',
-  },
-  missionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(108, 78, 245, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(108, 78, 245, 0.5)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 20,
   },
-  missionText: {
-    ...textStyles.button,
-    color: '#c4b5fd',
-  },
-  mascotContainer: {
-    flex: 1,
-    width: '100%',
+  headerTextContainer: { alignItems: 'center' },
+  headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
+  headerStatus: { fontFamily: 'Poppins_500Medium', fontSize: 12 },
+  
+  centerSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    marginTop: 40,
   },
-  mascotGlow: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(108, 78, 245, 0.15)',
-    transform: [{ scale: 1 }],
-  },
-  mascotGlowActive: {
-    backgroundColor: 'rgba(108, 78, 245, 0.4)',
-    transform: [{ scale: 1.2 }],
-  },
-  mascotImage: {
-    width: 200,
-    height: 200,
-    zIndex: 10,
-  },
-  subtitlesContainer: {
-    width: '100%',
-    paddingHorizontal: 20,
-    minHeight: 120,
-    justifyContent: 'flex-end',
-    marginBottom: 20,
-  },
-  bubbleZumi: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
-    marginBottom: 12,
-    alignSelf: 'flex-start',
-    maxWidth: '85%',
-  },
-  bubbleZumiText: {
-    ...textStyles.body,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  bubbleZumiTranslation: {
-    ...textStyles.caption,
-    color: '#64748b',
-    fontStyle: 'italic',
-  },
-  bubbleUser: {
-    backgroundColor: colors.primary.purple,
-    padding: 14,
-    borderRadius: 20,
-    borderBottomRightRadius: 4,
-    alignSelf: 'flex-end',
-    maxWidth: '85%',
-  },
-  bubbleUserText: {
-    ...textStyles.body,
-    color: '#ffffff',
-  },
-  controlsContainer: {
-    flexDirection: 'row',
+  avatarContainer: {
+    width: 160,
+    height: 160,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-evenly',
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 20,
+    marginBottom: 32,
   },
-  secondaryButton: {
+  pulseRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+  },
+  avatarWrapper: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 4,
+    overflow: 'hidden',
+    backgroundColor: '#FFF',
+    zIndex: 2,
+  },
+  avatarImage: { width: '100%', height: '100%' },
+  charName: { fontFamily: 'Chewy_400Regular', fontSize: 36, marginBottom: 8 },
+  charRole: { fontFamily: 'Poppins_500Medium', fontSize: 14 },
+  
+  subtitlesContainer: { 
+    paddingHorizontal: 24, 
+    marginTop: 'auto', 
+    marginBottom: 40 
+  },
+  subtitlesGlass: {
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  subtitlesText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 16,
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  
+  controlsSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 32,
+    paddingBottom: 40,
+  },
+  controlButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  micButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary.purple,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
   },
-  micButtonActive: {
-    backgroundColor: '#ef4444', // Red when recording
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    transform: [{ scale: 1.1 }],
-  }
+  hangupButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
 });

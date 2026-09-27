@@ -1,165 +1,133 @@
 import React from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { colors, textStyles } from '@/constants/theme';
-import { images } from '@/constants/images';
-import { Mic } from 'lucide-react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useRouter } from 'expo-router';
+import { Phone } from 'lucide-react-native';
+import { useThemeStore } from '@/store/themeStore';
+import { Colors } from '@/constants/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const CHARACTERS = [
-  { 
-    id: 'zumi', 
-    name: 'Uzaylı Zumi', 
-    tag: 'Yeni Başlayanlar', 
-    color: colors.primary.purple, 
-    image: images.mascotWelcome 
-  },
-  { 
-    id: 'puf', 
-    name: 'Ejderha Puf', 
-    tag: 'Eğlenceli', 
-    color: colors.primary.green, 
-    image: images.mascotAuth 
-  },
-  { 
-    id: 'kurnaz', 
-    name: 'Tilki Titi', 
-    tag: 'İleri Seviye', 
-    color: colors.semantic.streak, 
-    image: images.mascotLogo 
-  },
+  { id: 'zumi', name: 'Zumi', role: 'Uzaylı Dostun', color: '#7D67FF' },
+  { id: 'bilge', name: 'Bilge Baykuş', role: 'Ormanın Rehberi', color: '#63ECD0' },
+  { id: 'fira', name: 'Fira', role: 'Ateş Perisi', color: '#FF6B6B' },
 ];
 
-const BouncyGridCard = ({ item }: any) => {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95);
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1);
-  };
-
-  return (
-    <Link href={`/chat/${item.id}`} asChild>
-      <TouchableOpacity activeOpacity={0.8} onPressIn={handlePressIn} onPressOut={handlePressOut} style={styles.cardContainer}>
-      <Animated.View style={[styles.card, { backgroundColor: item.color + '15', borderColor: item.color + '40' }, animatedStyle]}>
-        
-        {/* Call Icon Badge */}
-        <View style={[styles.callBadge, { backgroundColor: item.color }]}>
-          <Mic size={16} color="#fff" />
-        </View>
-        
-        <Image source={item.image} style={styles.characterImage} resizeMode="contain" />
-        
-        <Text style={styles.cardName}>{item.name}</Text>
-        <View style={[styles.tagContainer, { backgroundColor: item.color + '30' }]}>
-          <Text style={[styles.cardTag, { color: item.color }]}>{item.tag}</Text>
-        </View>
-
-        <Text style={styles.callPrompt}>Sohbet Et!</Text>
-      </Animated.View>
-    </TouchableOpacity>
-    </Link>
-  );
-};
-
 export default function CharactersScreen() {
+  const router = useRouter();
+  const { theme } = useThemeStore();
+  const colors = Colors[theme] || Colors.day;
+  const isDay = theme === 'day';
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={textStyles.h2}>Karakterler</Text>
-        <Text style={styles.subtitle}>İstediğin karakterle sesli pratik yap.</Text>
-      </View>
-      <FlatList
-        data={CHARACTERS}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <BouncyGridCard item={item} />}
-        numColumns={2}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-    </SafeAreaView>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Karakterler</Text>
+          <Text style={[styles.headerDesc, { color: colors.textMuted }]}>
+            En sevdiğin masal kahramanlarıyla sesli sohbet et!
+          </Text>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          {CHARACTERS.map((char, index) => (
+            <Animated.View key={char.id} entering={FadeInDown.delay(index * 100)}>
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+                onPress={() => router.push(`/chat/${char.id}`)}
+              >
+                <View style={[styles.avatarContainer, { borderColor: char.color }]}>
+                  <Image 
+                    source={{ uri: `https://api.dicebear.com/7.x/bottts/png?seed=${char.id}` }} 
+                    style={styles.avatarImage} 
+                  />
+                </View>
+                
+                <View style={styles.cardInfo}>
+                  <Text style={[styles.charName, { color: colors.text }]}>{char.name}</Text>
+                  <Text style={[styles.charRole, { color: colors.textMuted }]}>{char.role}</Text>
+                </View>
+
+                <View style={[styles.callButton, { backgroundColor: char.color }]}>
+                  <Phone size={20} color="#FFF" fill="#FFF" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </ScrollView>
+
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    marginBottom: 24,
   },
-  subtitle: {
-    ...textStyles.body,
-    color: colors.neutral.textSecondary,
-    marginTop: 4,
+  headerTitle: {
+    fontFamily: 'Chewy_400Regular',
+    fontSize: 32,
+    marginBottom: 8,
   },
-  listContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 100,
+  headerDesc: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 14,
   },
-  cardContainer: {
-    width: (SCREEN_WIDTH - 48) / 2,
-    marginHorizontal: 6,
-    marginBottom: 16,
+  list: {
+    paddingHorizontal: 24,
+    paddingBottom: 120,
+    gap: 16,
   },
   card: {
-    borderRadius: 20,
-    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
-    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    backgroundColor: '#FFF',
+    overflow: 'hidden',
     justifyContent: 'center',
-    position: 'relative',
-  },
-  callBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
+    marginRight: 16,
   },
-  characterImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 12,
-    marginTop: 10,
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
-  cardName: {
-    ...textStyles.h3,
-    color: colors.neutral.textPrimary,
-    textAlign: 'center',
+  cardInfo: {
+    flex: 1,
+  },
+  charName: {
+    fontFamily: 'Poppins_700Bold',
+    fontSize: 18,
     marginBottom: 4,
   },
-  tagContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 12,
+  charRole: {
+    fontFamily: 'Poppins_500Medium',
+    fontSize: 12,
   },
-  cardTag: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 10,
-    textTransform: 'uppercase',
-  },
-  callPrompt: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 14,
-    color: colors.neutral.textSecondary,
-    textAlign: 'center',
+  callButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   }
 });

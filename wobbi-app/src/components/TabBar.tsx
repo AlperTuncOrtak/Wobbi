@@ -1,127 +1,170 @@
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useEffect } from "react";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { TouchableOpacity, View, Text, StyleSheet, Dimensions, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Compass, BookOpen, Smile, Library } from "lucide-react-native";
-import { colors, textStyles } from "@/constants/theme";
+import { Home, BookOpen, Ghost, User, Search } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { useThemeStore } from '@/store/themeStore';
+import { Colors } from '@/constants/theme';
+import { BlurView } from 'expo-blur';
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CIRCLE_SIZE = 52;
-const TAB_HEIGHT = 64;
+const { width } = Dimensions.get('window');
 
-type TabConfig = {
-  label: string;
-  Icon: any;
-};
-
-// 4 Tabs as requested
-const TABS: TabConfig[] = [
-  { label: "Keşfet", Icon: Compass },
-  { label: "Kitaplar", Icon: BookOpen },
-  { label: "Karakterler", Icon: Smile },
-  { label: "Kitaplık", Icon: Library },
+const TABS = [
+  { name: "index", label: "Keşfet", Icon: Home },
+  { name: "books", label: "Kitaplık", Icon: BookOpen },
+  { name: "characters", label: "Karakter", Icon: Ghost },
+  { name: "profile", label: "Profil", Icon: User },
 ];
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  
-  // Web Layout width clamping
-  const actualWidth = Platform.OS === 'web' ? Math.min(SCREEN_WIDTH, 420) : SCREEN_WIDTH;
-  const tabWidth = actualWidth / TABS.length;
+  const { theme } = useThemeStore();
+  const colors = Colors[theme] || Colors.day;
+  const isDay = theme === 'day';
 
-  const indicatorX = useSharedValue(
-    state.index * tabWidth + (tabWidth - CIRCLE_SIZE) / 2
-  );
+  const ACTIVE_COLOR = colors.primary;
+  const INACTIVE_COLOR = colors.textMuted;
 
-  useEffect(() => {
-    indicatorX.value = withSpring(
-      state.index * tabWidth + (tabWidth - CIRCLE_SIZE) / 2,
-      { damping: 18, stiffness: 160 }
+  // ==========================================
+  // 1. ANDROID İÇİN DÜZ (FLAT) TASARIM
+  // ==========================================
+  if (Platform.OS === 'android') {
+    const BG_COLOR = isDay ? "#FFFFFF" : "#121322"; 
+    const BORDER_COLOR = colors.border;
+    
+    return (
+      <View style={[ styles.androidContainer, { backgroundColor: BG_COLOR, borderTopColor: BORDER_COLOR, paddingBottom: insets.bottom > 0 ? insets.bottom : 12 } ]}>
+        {state.routes.map((route, index) => {
+          const tab = TABS.find((t) => t.name === route.name);
+          if (!tab) return null;
+          
+          const isFocused = state.index === index;
+          const onPress = () => {
+            const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          };
+
+          return (
+            <TouchableOpacity key={route.key} activeOpacity={0.7} onPress={onPress} style={styles.androidTabItem}>
+              <tab.Icon size={24} color={isFocused ? ACTIVE_COLOR : INACTIVE_COLOR} strokeWidth={isFocused ? 2.5 : 2} style={{ marginBottom: 4 }} />
+              <Text style={[styles.androidTabLabel, { color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR }, isFocused && { fontFamily: "Poppins_700Bold" }]} numberOfLines={1}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     );
-  }, [state.index]);
+  }
 
-  const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: indicatorX.value }],
-  }));
-
+  // ==========================================
+  // 2. IOS İÇİN YÜZEN KAPSÜL (FLOATING PILL) TASARIM
+  // ==========================================
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom || 8 }]}>
-      <Animated.View style={[styles.indicator, indicatorStyle]} />
+    <View style={[styles.iosWrapper, { bottom: insets.bottom > 0 ? insets.bottom : 24 }]}>
+      <BlurView 
+        intensity={isDay ? 60 : 40} 
+        tint={isDay ? "light" : "dark"} 
+        style={[styles.iosContainer, { borderColor: colors.border }]}
+      >
+        {state.routes.map((route, index) => {
+          const tab = TABS.find((t) => t.name === route.name);
+          if (!tab) return null;
+          
+          const isFocused = state.index === index;
+          const onPress = () => {
+            const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          };
 
-      {state.routes.map((route, index) => {
-        const tab = TABS[index];
-        const isFocused = state.index === index;
+          return (
+            <TouchableOpacity key={route.key} activeOpacity={0.7} onPress={onPress} style={styles.iosTabItem}>
+              {isFocused && (
+                <View style={[styles.iosActiveBackground, { backgroundColor: isDay ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]} />
+              )}
+              <tab.Icon size={22} color={isFocused ? ACTIVE_COLOR : INACTIVE_COLOR} strokeWidth={isFocused ? 2.5 : 2} />
+              <Text style={[styles.iosTabLabel, { color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR }]} numberOfLines={1}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </BlurView>
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: "tabPress",
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            onPress={onPress}
-            style={styles.tab}
-            activeOpacity={0.8}
-          >
-            <tab.Icon
-              size={22}
-              color={isFocused ? "#fff" : colors.neutral.textSecondary}
-              strokeWidth={isFocused ? 2.5 : 2}
-            />
-            {!isFocused && <Text style={styles.label}>{tab.label}</Text>}
-          </TouchableOpacity>
-        );
-      })}
+      {/* iOS'e Özel Yüzen Arama Butonu */}
+      <TouchableOpacity style={[styles.iosSearchButton, { backgroundColor: colors.primary, borderColor: colors.border }]}>
+        <Search size={24} color="#FFF" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // ANDROID STİLLERİ
+  androidContainer: {
+    width: "100%",
     flexDirection: "row",
-    backgroundColor: colors.neutral.background,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 8,
-    ...(Platform.OS === 'web' ? {
-      maxWidth: 420,
-      width: '100%',
-      alignSelf: 'center',
-      borderLeftWidth: 1,
-      borderRightWidth: 1,
-      borderColor: colors.neutral.border,
-    } : {})
+    paddingTop: 16,
+    elevation: 20,
   },
-  indicator: {
-    position: "absolute",
-    top: (TAB_HEIGHT - CIRCLE_SIZE) / 2,
-    left: 0,
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: colors.primary.purple,
-  },
-  tab: {
+  androidTabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    height: TAB_HEIGHT,
-    zIndex: 2,
   },
-  label: {
-    ...textStyles.caption,
-    marginTop: 3,
+  androidTabLabel: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 11,
+  },
+  
+  // IOS STİLLERİ
+  iosWrapper: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    width: width,
+    zIndex: 100,
+  },
+  iosContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginRight: 16,
+    paddingHorizontal: 8,
+  },
+  iosTabItem: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%',
+  },
+  iosActiveBackground: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  iosTabLabel: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 10,
+    marginTop: 4,
+  },
+  iosSearchButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
 });
