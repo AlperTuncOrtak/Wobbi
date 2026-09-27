@@ -10,7 +10,7 @@ import {
   Dimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Play, Heart, Moon, Sun, Sparkles, Clock, Compass, Star, User } from 'lucide-react-native';
+import { Search, Play, Heart, Moon, Sun, Sparkles, Clock, Compass, Star, User , ChevronRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@clerk/expo';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -320,6 +320,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     fontSize: 13,
   },
+  
+  createBanner: {
+    borderRadius: 24,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  createBannerContent: {
+    flex: 1,
+  },
+  createBannerTitle: {
+    fontFamily: 'Poppins_700Bold',
+    fontSize: 18,
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  createBannerDesc: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  createBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   categoriesScroll: {
     paddingHorizontal: 24,
     gap: 12,

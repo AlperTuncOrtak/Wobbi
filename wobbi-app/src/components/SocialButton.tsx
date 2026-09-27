@@ -1,4 +1,6 @@
-﻿import { Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View, StyleSheet } from "react-native";
+import { useThemeStore } from "@/store/themeStore";
+import { Colors } from "@/constants/theme";
 
 interface Props {
   icon: React.ReactNode;
@@ -7,17 +9,41 @@ interface Props {
 }
 
 export default function SocialButton({ icon, label, onPress }: Props) {
+  const { theme } = useThemeStore();
+  const colors = Colors[theme] || Colors.day;
+
   return (
     <TouchableOpacity
-      className="mb-3 flex-row items-center rounded-2xl border border-gray-200 px-4 py-3.5"
+      style={[styles.container, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
       onPress={onPress}
       activeOpacity={0.75}
     >
-      <View className="w-6 items-center">{icon}</View>
-      <Text className="flex-1 text-center text-[14px] font-poppins-medium text-[#001328]">
+      <View style={styles.iconContainer}>{icon}</View>
+      <Text style={[styles.label, { color: colors.text }]}>
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  iconContainer: {
+    width: 24,
+    alignItems: 'center',
+  },
+  label: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+    fontFamily: 'Poppins_500Medium',
+  }
+});

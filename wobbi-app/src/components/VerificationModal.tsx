@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeStore } from "@/store/themeStore";
+import { Colors } from "@/constants/theme";
 
 interface Props {
   visible: boolean;
@@ -29,6 +31,8 @@ export default function VerificationModal({
   onResend,
   error,
 }: Props) {
+  const { theme } = useThemeStore();
+  const colors = Colors[theme] || Colors.day;
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -61,77 +65,94 @@ export default function VerificationModal({
   const handleResend = async () => {
     setCode("");
     await onResend();
-    setTimeout(() => inputRef.current?.focus(), 300);
+    inputRef.current?.focus();
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView style={{ flex: 1, justifyContent: "flex-end" }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={StyleSheet.absoluteFill} className="bg-black/45" />
-        </TouchableWithoutFeedback>
-
-        <View className="bg-white rounded-t-[28px] px-6 pt-7 pb-10 items-center">
-          <TouchableOpacity onPress={onClose} className="absolute top-4 right-5 p-1">
-            <Ionicons name="close" size={22} color="#6b7280" />
-          </TouchableOpacity>
-
-          <Text className="font-poppins-semibold text-[22px] text-text-primary mb-2 text-center">
-            Check your email
-          </Text>
-          <Text className="font-poppins-regular textsm text-text-secondary text-center leading-[22px] mb-8">
-            We sent a 6-digit code to{"\n"}
-            <Text className="font-poppins-medium text-text-primary">{email || "your email"}</Text>
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => inputRef.current?.focus()}
-            className="flex-row gap-2.5 mb-4"
-          >
-            {Array.from({ length: 6 }).map((_, i) => (
-              <View
-                key={i}
-                className={`w-12 h-14 border-[1.5px] rounded-2xl items-center justify-center ${
-                  code[i]
-                    ? "border-lingua-purple bg-lingua-purple/10"
-                    : i === code.length
-                      ? "border-lingua-purple bg-white"
-                      : "border-border bg-white"
-                }`}
-              >
-                <Text className="font-poppins-semibold text-[20px] text-text-primary">
-                  {code[i] ?? ""}
-                </Text>
+    <Modal visible={visible} animationType="slide" transparent>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              style={[styles.modalContent, { backgroundColor: colors.background }]}
+            >
+              <View style={styles.header}>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
               </View>
-            ))}
-          </TouchableOpacity>
 
-          <TextInput
-            ref={inputRef}
-            value={code}
-            onChangeText={handleCodeChange}
-            keyboardType="number-pad"
-            maxLength={6}
-            style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
-            editable={!isSubmitting}
-          />
+              <Text style={[styles.title, { color: colors.text }]}>E-postanı Doğrula</Text>
+              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                {email} adresine gönderdiğimiz 6 haneli kodu gir.
+              </Text>
 
-          {error ? <Text className="font-poppins-regular text-[13px] text-semantic-error text-center mb-2">{error}</Text> : null}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => inputRef.current?.focus()}
+                style={styles.codeContainer}
+              >
+                {[0, 1, 2, 3, 4, 5].map((i) => {
+                  const hasValue = !!code[i];
+                  const isCurrent = i === code.length;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.codeBox,
+                        {
+                          borderColor: hasValue || isCurrent ? colors.primary : colors.border,
+                          backgroundColor: hasValue ? colors.primary + '15' : colors.cardBg,
+                        }
+                      ]}
+                    >
+                      <Text style={[styles.codeText, { color: colors.text }]}>
+                        {code[i] ?? ""}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </TouchableOpacity>
 
-          <TouchableOpacity className="py-1 mt-2" onPress={handleResend}>
-            <Text className="font-poppins-regular text-[13px] text-text-secondary">
-              Didn't receive it?{" "}
-              <Text className="font-poppins-medium text-lingua-purple">Resend</Text>
-            </Text>
-          </TouchableOpacity>
+              <TextInput
+                ref={inputRef}
+                value={code}
+                onChangeText={handleCodeChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+                editable={!isSubmitting}
+              />
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity style={styles.resendButton} onPress={handleResend}>
+                <Text style={[styles.resendText, { color: colors.textMuted }]}>
+                  Kod gelmedi mi?{" "}
+                  <Text style={[styles.resendLink, { color: colors.primary }]}>Yeniden Gönder</Text>
+                </Text>
+              </TouchableOpacity>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
         </View>
-      </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingBottom: 48, paddingTop: 16 },
+  header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 },
+  closeButton: { padding: 4 },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 24, textAlign: "center", marginBottom: 8 },
+  subtitle: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginBottom: 32, paddingHorizontal: 16 },
+  codeContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24, paddingHorizontal: 16 },
+  codeBox: { width: 44, height: 52, borderRadius: 12, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  codeText: { fontFamily: "Poppins_600SemiBold", fontSize: 20 },
+  errorText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "#ff4d4f", textAlign: "center", marginBottom: 8 },
+  resendButton: { paddingVertical: 4, marginTop: 8 },
+  resendText: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center" },
+  resendLink: { fontFamily: "Poppins_500Medium" },
+});
