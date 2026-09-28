@@ -1,7 +1,7 @@
 -- Kullanıcılar (Users)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    google_id VARCHAR(255) UNIQUE,
+    clerk_id VARCHAR(255) UNIQUE,
     email VARCHAR(255) UNIQUE NOT NULL,
     parent_pin VARCHAR(4),
     is_premium BOOLEAN DEFAULT FALSE,

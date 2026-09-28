@@ -6,7 +6,12 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { clerkMiddleware, requireAuth } = require('@clerk/express');
+const { clerkMiddleware, getAuth } = require('@clerk/express');
+
+// Gizli bilgiler koda yazılmaz, eksikse sunucu açılmaz (.env.example'a bak)
+for (const key of ['DB_PASSWORD', 'JWT_SECRET', 'ADMIN_PASSWORD']) {
+  if (!process.env[key]) throw new Error(`${key} tanımlı değil (.env)`);
+}
 
 const app = express();
 const port = 3000;
@@ -14,11 +19,13 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-// Clerk Middleware (Sadece CLERK_SECRET_KEY varsa aktif et, yoksa hata vermesin)
-if (process.env.CLERK_SECRET_KEY) {
-  app.use(clerkMiddleware());
+// Clerk sadece kullanıcı uçlarında çalışır (admin'in kendi JWT'si Clerk'e takılmasın).
+// İki anahtar da yoksa kapalı kalır, yoksa her istekte hata verir.
+const clerkEnabled = process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY;
+if (clerkEnabled) {
+  app.use('/api/user', clerkMiddleware());
 } else {
-  console.log("UYARI: CLERK_SECRET_KEY bulunamadi. Kullanici girisleri calismayacak!");
+  console.log("UYARI: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY bulunamadi. Kullanici girisleri calismayacak!");
 }
 
 // Yüklenen dosyaları dışarıya sunmak için statik klasör
@@ -28,28 +35,27 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/furkan-panel', express.static(path.join(__dirname, 'admin')));
 
 // ---------------- GÜVENLİK (MULTER DOSYA YÜKLEME) ----------------
+const uploadDir = path.join(__dirname, 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+// SADECE GÜVENLİ DOSYA TÜRLERİNE İZİN VER (uzantı dosya adından değil, türden gelir)
+const allowedTypes = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'audio/mpeg': '.mp3' };
+
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = './uploads';
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir);
-    }
-    cb(null, dir);
-  },
+  destination: uploadDir,
   filename: function (req, file, cb) {
-    // Rastgele isim ve güvenli uzantı
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + allowedTypes[file.mimetype]);
   }
 });
 
-// SADECE GÜVENLİ DOSYA TÜRLERİNE İZİN VER (Zararlı yazılım engelleme)
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'audio/mpeg'];
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  if (allowedTypes[file.mimetype]) {
     cb(null, true);
   } else {
-    cb(new Error('Güvenlik İhlali: Sadece resim ve ses dosyaları yüklenebilir!'), false);
+    const err = new Error('Sadece JPG, PNG, WEBP resim ve MP3 ses dosyaları yüklenebilir!');
+    err.status = 400;
+    cb(err, false);
   }
 };
 
@@ -64,7 +70,7 @@ const authenticateAdmin = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ hata: 'Erişim engellendi. Token yok.' });
   
-  jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'wobbi_secret_key', (err, decoded) => {
+  jwt.verify(token.split(' ')[1], process.env.JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ hata: 'Geçersiz veya süresi dolmuş token.' });
     if (decoded.role !== 'admin') return res.status(403).json({ hata: 'Admin yetkisi gerekiyor.' });
     req.admin = decoded;
@@ -73,12 +79,15 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 // ---------------- GÜVENLİK (JWT AUTHENTICATION - KULLANICI / CLERK) ----------------
-// Clerk SDK kullanıldığı için authenticateUser yerine direkt requireAuth() kullanacağız.
+// Mobil uygulama Clerk session token'ını "Authorization: Bearer ..." ile gönderir.
 const authenticateUser = (req, res, next) => {
-  if (!process.env.CLERK_SECRET_KEY) {
+  if (!clerkEnabled) {
     return res.status(500).json({ hata: "Sunucuda Clerk Ayarları Eksik!" });
   }
-  requireAuth()(req, res, next);
+  const { userId } = getAuth(req);
+  if (!userId) return res.status(401).json({ hata: 'Giriş yapmanız gerekiyor.' });
+  req.clerkUserId = userId;
+  next();
 };
 
 // Veritabanı Bağlantısı
@@ -86,7 +95,7 @@ const pool = new Pool({
   user: process.env.DB_USER || 'kidly_admin',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'masal_db',
-  password: process.env.DB_PASSWORD || 'MasalSifre_2026',
+  password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT || 5432,
 });
 
@@ -95,10 +104,8 @@ const pool = new Pool({
 // Admin Girişi (Furkan için)
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'FurkanWobbi2026';
-  
-  if (password === adminPassword) {
-    const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET || 'wobbi_secret_key', { expiresIn: '12h' });
+  if (password === process.env.ADMIN_PASSWORD) {
+    const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '12h' });
     res.json({ mesaj: 'Giriş başarılı', token });
   } else {
     res.status(401).json({ hata: 'Yanlış şifre!' });
@@ -110,17 +117,20 @@ app.post('/api/admin/upload', authenticateAdmin, upload.single('file'), (req, re
   if (!req.file) {
     return res.status(400).json({ hata: 'Dosya yüklenemedi.' });
   }
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  res.json({ url: fileUrl });
+  // Göreli yol saklanır: domain/HTTPS değişince DB'deki adresler bozulmaz.
+  // Uygulama bunu API adresinin başına ekler (örn. https://api.wobbi.app + /uploads/...)
+  res.json({ url: `/uploads/${req.file.filename}` });
 });
 
 // Yeni Karakter Ekle
 app.post('/api/admin/characters', authenticateAdmin, async (req, res) => {
   try {
     const { name, bio, avatar_url, theme_color } = req.body;
+    if (!name) return res.status(400).json({ hata: 'Karakter adı zorunlu.' });
+    // Panel boş alanları '' gönderir, DB'ye NULL yazılsın
     const result = await pool.query(
       'INSERT INTO characters (name, bio, avatar_url, theme_color) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, bio, avatar_url, theme_color]
+      [name, bio || null, avatar_url || null, theme_color || null]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -132,9 +142,10 @@ app.post('/api/admin/characters', authenticateAdmin, async (req, res) => {
 app.post('/api/admin/stories', authenticateAdmin, async (req, res) => {
   try {
     const { title, category, character_id, cover_url, duration_minutes, description } = req.body;
+    if (!title) return res.status(400).json({ hata: 'Kitap başlığı zorunlu.' });
     const result = await pool.query(
       'INSERT INTO stories (title, category, character_id, cover_url, duration_minutes, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [title, category, character_id, cover_url, duration_minutes, description]
+      [title, category || null, character_id || null, cover_url || null, duration_minutes || null, description || null]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -146,9 +157,12 @@ app.post('/api/admin/stories', authenticateAdmin, async (req, res) => {
 app.post('/api/admin/story_pages', authenticateAdmin, async (req, res) => {
   try {
     const { story_id, page_number, image_url, audio_url, text_content, word_timestamps, magic_words } = req.body;
+    if (!story_id || !page_number || !text_content) {
+      return res.status(400).json({ hata: 'Kitap, sayfa numarası ve metin zorunlu.' });
+    }
     const result = await pool.query(
       'INSERT INTO story_pages (story_id, page_number, image_url, audio_url, text_content, word_timestamps, magic_words) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [story_id, page_number, image_url, audio_url, text_content, JSON.stringify(word_timestamps), JSON.stringify(magic_words)]
+      [story_id, page_number, image_url || null, audio_url || null, text_content, JSON.stringify(word_timestamps), JSON.stringify(magic_words)]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -226,27 +240,38 @@ app.get('/api/stories/:id', async (req, res) => {
 
 // Not: Login/Register işlemi Frontend'de Clerk ile yapılıyor.
 // Backend'de sadece "Lazy Creation" yapıyoruz. İlk istekte veritabanına kaydedilir.
-const getOrCreateUser = async (clerkId, req) => {
-  let userRes = await pool.query('SELECT id, email, is_premium FROM users WHERE clerk_id = $1', [clerkId]);
-  
-  if (userRes.rows.length === 0) {
+const findUser = (clerkId) =>
+  pool.query('SELECT id, email, is_premium FROM users WHERE clerk_id = $1', [clerkId]);
+
+const getOrCreateUser = async (clerkId) => {
+  let { rows } = await findUser(clerkId);
+  if (rows.length === 0) {
     // Clerk'ten email gelmemişse geçici bir email oluştur.
-    // (Gerçek senaryoda req.auth.sessionClaims'den email çekilebilir).
-    const email = `${clerkId}@wobbi.local`; 
-    const insertRes = await pool.query(
-      'INSERT INTO users (email, clerk_id) VALUES ($1, $2) RETURNING id, email, is_premium',
-      [email, clerkId]
+    // ON CONFLICT: uygulama ilk açılışta aynı anda iki istek atarsa ikincisi hata vermesin.
+    await pool.query(
+      'INSERT INTO users (email, clerk_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [`${clerkId}@wobbi.local`, clerkId]
     );
-    return insertRes.rows[0];
+    ({ rows } = await findUser(clerkId));
   }
-  return userRes.rows[0];
+  return rows[0];
+};
+
+// Okunan farklı hikaye ve kategori sayısı (tekrar okumalar sayılmaz)
+const getReadStats = async (userId) => {
+  const { rows } = await pool.query(`
+    SELECT COUNT(DISTINCT h.story_id)::int AS stories, COUNT(DISTINCT s.category)::int AS categories
+    FROM user_read_history h
+    JOIN stories s ON s.id = h.story_id
+    WHERE h.user_id = $1
+  `, [userId]);
+  return rows[0];
 };
 
 // Kullanıcı Profilini ve Rozetlerini Getir
 app.get('/api/user/profile', authenticateUser, async (req, res) => {
   try {
-    const clerkId = req.auth.userId;
-    const userProfile = await getOrCreateUser(clerkId, req);
+    const userProfile = await getOrCreateUser(req.clerkUserId);
     const userId = userProfile.id; // Postgres'teki asıl ID'miz
 
     const badgesRes = await pool.query(`
@@ -256,11 +281,11 @@ app.get('/api/user/profile', authenticateUser, async (req, res) => {
       WHERE ub.user_id = $1
     `, [userId]);
     
-    const historyRes = await pool.query('SELECT COUNT(*) as total_read FROM user_read_history WHERE user_id = $1', [userId]);
+    const stats = await getReadStats(userId);
 
     res.json({
       ...userProfile,
-      total_stories_read: parseInt(historyRes.rows[0].total_read),
+      total_stories_read: stats.stories,
       badges: badgesRes.rows
     });
   } catch (err) {
@@ -271,16 +296,19 @@ app.get('/api/user/profile', authenticateUser, async (req, res) => {
 // Hikaye Okumayı Tamamlama (Limit Kontrolü ve Rozet Kazanımı)
 app.post('/api/user/read-story', authenticateUser, async (req, res) => {
   try {
-    const clerkId = req.auth.userId;
-    const userProfile = await getOrCreateUser(clerkId, req);
+    const storyId = Number(req.body.story_id);
+    if (!Number.isInteger(storyId)) return res.status(400).json({ hata: 'Geçerli bir story_id gerekli.' });
+    const storyRes = await pool.query('SELECT 1 FROM stories WHERE id = $1', [storyId]);
+    if (storyRes.rowCount === 0) return res.status(404).json({ hata: 'Hikaye bulunamadı' });
+
+    const userProfile = await getOrCreateUser(req.clerkUserId);
     const userId = userProfile.id;
-    const { story_id } = req.body;
-    
-    // 1. Limit Kontrolü
+
+    // 1. Limit Kontrolü (bugün okunan hikayeyi tekrar okumak hakkı yakmaz)
     if (!userProfile.is_premium) {
       const todayRes = await pool.query(
-        'SELECT COUNT(*) as today_count FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE', 
-        [userId]
+        'SELECT COUNT(*) as today_count FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE AND story_id <> $2',
+        [userId, storyId]
       );
       if (parseInt(todayRes.rows[0].today_count) >= 1) {
         return res.status(403).json({ 
@@ -293,13 +321,12 @@ app.post('/api/user/read-story', authenticateUser, async (req, res) => {
     // 2. Geçmişe Ekle
     await pool.query(
       'INSERT INTO user_read_history (user_id, story_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, story_id]
+      [userId, storyId]
     );
 
     // 3. Rozet Kontrolleri (Oyunlaştırma)
-    const historyRes = await pool.query('SELECT COUNT(*) as total_read FROM user_read_history WHERE user_id = $1', [userId]);
-    const totalRead = parseInt(historyRes.rows[0].total_read);
-    
+    const stats = await getReadStats(userId);
+
     let newBadges = [];
 
     const awardBadge = async (code) => {
@@ -314,13 +341,24 @@ app.post('/api/user/read-story', authenticateUser, async (req, res) => {
       }
     };
 
-    if (totalRead === 1) await awardBadge('FIRST_STEP');
-    if (totalRead === 5) await awardBadge('BOOKWORM');
-    
+    // >= : rozet sonradan eklense de hak eden herkes bir sonraki okumada alır (tekrar verilmez, ON CONFLICT)
+    if (stats.stories >= 1) await awardBadge('FIRST_STEP');
+    if (stats.stories >= 5) await awardBadge('BOOKWORM');
+    if (stats.categories >= 3) await awardBadge('EXPLORER');
+    // NIGHT_OWL: uyku modu verisi gelince eklenecek
+
     res.json({ mesaj: 'Hikaye okuma başarıyla kaydedildi.', new_badges_earned: newBadges });
   } catch (err) {
     res.status(500).json({ hata: err.message });
   }
+});
+
+// Yakalanmayan hatalar (dosya türü/boyutu, bozuk JSON vb.) HTML yerine JSON dönsün
+app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ hata: 'Dosya 20 MB\'dan büyük olamaz.' });
+  const status = err.status || (err instanceof multer.MulterError ? 400 : 500);
+  if (status >= 500) console.error(err);
+  res.status(status).json({ hata: status < 500 ? err.message : 'Sunucu hatası.' });
 });
 
 app.listen(port, () => {
