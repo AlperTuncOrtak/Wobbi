@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Moon, Sun } from 'lucide-react-native';
 import { useUser } from '@clerk/expo';
@@ -16,6 +16,48 @@ export default function HomeHeader() {
   const colors = Colors[theme] || Colors.night;
   const isDay = theme === 'day';
 
+  // ANDROID: Avatar Solda, Konuşma Balonu Ortada, Arama Sağda
+  if (Platform.OS === 'android') {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + 16, marginBottom: 16 }]}>
+        <View style={styles.androidTopNav}>
+          {/* Avatar (Sol) */}
+          <TouchableOpacity 
+            style={styles.androidAvatarBtn}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            {user?.imageUrl ? (
+              <Image source={{ uri: user.imageUrl }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.androidAvatarFallback} />
+            )}
+          </TouchableOpacity>
+
+          {/* Konuşma Balonu (Orta) */}
+          <View style={styles.bubbleContainer}>
+            <View style={styles.speechBubble}>
+              <Text style={styles.bubbleText}>
+                Hey <Text style={styles.bubbleTextBold}>{user?.firstName || 'Wulfa'}</Text>
+              </Text>
+            </View>
+            <View style={styles.bubbleTail} />
+          </View>
+
+          {/* İkonlar (Sağ) */}
+          <View style={styles.rightIcons}>
+             <TouchableOpacity style={styles.androidIconBtn} onPress={() => setTheme(isDay ? 'night' : 'day')}>
+               {isDay ? <Moon size={20} color="#FFF" /> : <Sun size={20} color="#FFF" />}
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.androidIconBtn}>
+               <Search size={20} color="#FFF" />
+             </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // IOS: Orijinal Tasarım (Wobbi Logosu, Greeting)
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       
@@ -65,6 +107,68 @@ export default function HomeHeader() {
 }
 
 const styles = StyleSheet.create({
+  androidTopNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  androidAvatarBtn: {
+    width: 44, height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#0F1020',
+    backgroundColor: '#0F1020',
+    justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
+  },
+  androidAvatarFallback: {
+    width: '100%', height: '100%',
+    backgroundColor: '#0F1020',
+  },
+  androidIconBtn: {
+    width: 44, height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0F1020',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  bubbleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  speechBubble: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bubbleText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 15,
+    color: '#0F1020',
+  },
+  bubbleTextBold: {
+    fontFamily: 'Poppins_700Bold',
+  },
+  bubbleTail: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#FFFFFF',
+    marginTop: -1,
+  },
+
   container: {
     paddingHorizontal: 24,
     marginBottom: 24,
