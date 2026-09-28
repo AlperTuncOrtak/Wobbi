@@ -14,8 +14,17 @@ CREATE TABLE IF NOT EXISTS user_read_history (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     story_id INT REFERENCES stories(id) ON DELETE CASCADE,
     read_date DATE DEFAULT CURRENT_DATE,
+    completed_at TIMESTAMP, -- Hikaye bitince doldurulur (rozetler bunu sayar)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, story_id, read_date)
+);
+
+-- Favoriler (Kitaplığım)
+CREATE TABLE IF NOT EXISTS user_favorites (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    story_id INT REFERENCES stories(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, story_id)
 );
 
 -- Rozetler (Katalog)

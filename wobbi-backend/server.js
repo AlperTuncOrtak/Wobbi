@@ -19,12 +19,10 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-// Clerk sadece kullanıcı uçlarında çalışır (admin'in kendi JWT'si Clerk'e takılmasın).
+// Clerk sadece authenticateUser kullanan uçlarda çalışır (admin'in kendi JWT'si Clerk'e takılmasın).
 // İki anahtar da yoksa kapalı kalır, yoksa her istekte hata verir.
-const clerkEnabled = process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY;
-if (clerkEnabled) {
-  app.use('/api/user', clerkMiddleware());
-} else {
+const clerk = process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY && clerkMiddleware();
+if (!clerk) {
   console.log("UYARI: CLERK_SECRET_KEY / CLERK_PUBLISHABLE_KEY bulunamadi. Kullanici girisleri calismayacak!");
 }
 
@@ -81,13 +79,16 @@ const authenticateAdmin = (req, res, next) => {
 // ---------------- GÜVENLİK (JWT AUTHENTICATION - KULLANICI / CLERK) ----------------
 // Mobil uygulama Clerk session token'ını "Authorization: Bearer ..." ile gönderir.
 const authenticateUser = (req, res, next) => {
-  if (!clerkEnabled) {
+  if (!clerk) {
     return res.status(500).json({ hata: "Sunucuda Clerk Ayarları Eksik!" });
   }
-  const { userId } = getAuth(req);
-  if (!userId) return res.status(401).json({ hata: 'Giriş yapmanız gerekiyor.' });
-  req.clerkUserId = userId;
-  next();
+  clerk(req, res, (err) => {
+    if (err) return next(err);
+    const { userId } = getAuth(req);
+    if (!userId) return res.status(401).json({ hata: 'Giriş yapmanız gerekiyor.' });
+    req.clerkUserId = userId;
+    next();
+  });
 };
 
 // Veritabanı Bağlantısı
@@ -185,55 +186,73 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
-// 1. Tüm Karakterleri Getir
+// Bundan sonraki uçlarda try/catch yok: Express 5 async hataları en alttaki JSON hata yakalayıcısına iletir.
+// API sözleşmesi: API.md
+
+// 1. Karakterler (story_count canlı hesaplanır)
 app.get('/api/characters', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM characters ORDER BY id ASC');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
-  }
+  const result = await pool.query(`
+    SELECT c.id, c.name, c.bio, c.avatar_url, c.theme_color, COUNT(s.id)::int AS story_count
+    FROM characters c
+    LEFT JOIN stories s ON s.character_id = c.id
+    GROUP BY c.id
+    ORDER BY c.id
+  `);
+  res.json(result.rows);
 });
 
-// 2. Tüm Hikayeleri (Kitapları) Getir
+// Liste kartındaki hikaye alanları (sayfalar hariç). Hikaye listesi, detay ve favoriler kullanır.
+const STORY_CARD_SQL = `
+  SELECT s.id, s.title, s.description, s.category, s.cover_url, s.duration_minutes,
+         s.character_id, c.name AS character_name, c.theme_color,
+         (SELECT COUNT(*)::int FROM story_pages p WHERE p.story_id = s.id) AS page_count
+  FROM stories s
+  LEFT JOIN characters c ON c.id = s.character_id`;
+
+// "abc", "-1" gibi id'ler DB hatası yerine null olsun (sorgu 0 satır döner)
+const toId = (value) => {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+// 2. Tüm hikayeler (herkese açık). Karakter/kategori filtresini uygulama kendisi yapar.
+// ponytail: filtre/sayfalama yok; katalog yüzlerce hikayeyi geçince ?character_id= ve ?limit= ekle
 app.get('/api/stories', async (req, res) => {
-  try {
-    // Hikayeleri, karakter ismiyle beraber getiriyoruz
-    const query = `
-      SELECT s.*, c.name as character_name, c.theme_color 
-      FROM stories s 
-      LEFT JOIN characters c ON s.character_id = c.id 
-      ORDER BY s.id ASC
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
-  }
+  const result = await pool.query(`${STORY_CARD_SQL} ORDER BY s.id`);
+  res.json(result.rows);
 });
 
-// 3. Hikaye Detayını ve Sayfalarını Getir
-app.get('/api/stories/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Önce hikayenin ana bilgilerini alalım
-    const storyResult = await pool.query('SELECT * FROM stories WHERE id = $1', [id]);
-    if (storyResult.rows.length === 0) {
-      return res.status(404).json({ hata: 'Hikaye bulunamadı' });
-    }
-    const story = storyResult.rows[0];
+// 3. Hikaye + sayfalar. Giriş ister; ücretsiz kullanıcının günlük hakkı burada düşer.
+app.get('/api/stories/:id', authenticateUser, async (req, res) => {
+  const storyId = toId(req.params.id);
+  const storyRes = await pool.query(`${STORY_CARD_SQL} WHERE s.id = $1`, [storyId]);
+  if (storyRes.rows.length === 0) return res.status(404).json({ hata: 'Hikaye bulunamadı' });
 
-    // Sonra hikayenin sayfalarını (metin, ses, sihirli kelimeler) alalım
-    const pagesResult = await pool.query('SELECT * FROM story_pages WHERE story_id = $1 ORDER BY page_number ASC', [id]);
-    
-    // İkisini birleştirip tek JSON olarak dönüyoruz
-    story.pages = pagesResult.rows;
-    
-    res.json(story);
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
+  const user = await getOrCreateUser(req.clerkUserId);
+  // Bugün açılan hikayeyi tekrar açmak hakkı yakmaz.
+  // ponytail: aynı anda iki farklı hikaye açılırsa ikisi de geçebilir; sorun olursa kullanıcı satırında FOR UPDATE
+  if (!user.is_premium) {
+    const todayRes = await pool.query(
+      'SELECT 1 FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE AND story_id <> $2',
+      [user.id, storyId]
+    );
+    if (todayRes.rowCount > 0) {
+      return res.status(403).json({
+        hata: 'Günlük ücretsiz okuma limitine ulaştınız. Sınırsız okuma için Premium\'a geçin.',
+        limit_reached: true
+      });
+    }
   }
+  await pool.query(
+    'INSERT INTO user_read_history (user_id, story_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [user.id, storyId]
+  );
+
+  const pagesRes = await pool.query(
+    'SELECT id, page_number, image_url, audio_url, text_content, word_timestamps, magic_words FROM story_pages WHERE story_id = $1 ORDER BY page_number',
+    [storyId]
+  );
+  res.json({ ...storyRes.rows[0], pages: pagesRes.rows });
 });
 
 // ---------------- KULLANICI (USER) ENDPOINTLERI ----------------
@@ -257,101 +276,119 @@ const getOrCreateUser = async (clerkId) => {
   return rows[0];
 };
 
-// Okunan farklı hikaye ve kategori sayısı (tekrar okumalar sayılmaz)
+// Bitirilen farklı hikaye ve kategori sayısı (tekrar okumalar sayılmaz)
 const getReadStats = async (userId) => {
   const { rows } = await pool.query(`
     SELECT COUNT(DISTINCT h.story_id)::int AS stories, COUNT(DISTINCT s.category)::int AS categories
     FROM user_read_history h
     JOIN stories s ON s.id = h.story_id
-    WHERE h.user_id = $1
+    WHERE h.user_id = $1 AND h.completed_at IS NOT NULL
   `, [userId]);
   return rows[0];
 };
 
-// Kullanıcı Profilini ve Rozetlerini Getir
+// Kullanıcı Profili: istatistik, seri, bugünkü hikaye ve TÜM rozetler (kazanılmamışlarda earned_at = null)
 app.get('/api/user/profile', authenticateUser, async (req, res) => {
-  try {
-    const userProfile = await getOrCreateUser(req.clerkUserId);
-    const userId = userProfile.id; // Postgres'teki asıl ID'miz
+  const user = await getOrCreateUser(req.clerkUserId);
 
-    const badgesRes = await pool.query(`
-      SELECT b.name, b.description, b.icon_url, ub.earned_at 
-      FROM user_badges ub 
-      JOIN badges b ON ub.badge_id = b.id 
-      WHERE ub.user_id = $1
-    `, [userId]);
-    
-    const stats = await getReadStats(userId);
+  const badgesRes = await pool.query(`
+    SELECT b.code, b.name, b.description, b.icon_url, ub.earned_at
+    FROM badges b
+    LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1
+    ORDER BY b.id
+  `, [user.id]);
 
-    res.json({
-      ...userProfile,
-      total_stories_read: stats.stories,
-      badges: badgesRes.rows
-    });
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
-  }
+  // Günlük seri: bugün veya dün biten ardışık okuma günleri.
+  // Ardışık günlerde (tarih - sıra no) aynı kalır, o grubun büyüklüğü seriyi verir.
+  const streakRes = await pool.query(`
+    WITH days AS (SELECT DISTINCT read_date FROM user_read_history WHERE user_id = $1),
+    groups AS (SELECT read_date, read_date - (ROW_NUMBER() OVER (ORDER BY read_date))::int AS grp FROM days)
+    SELECT COUNT(*)::int AS streak FROM groups
+    WHERE grp = (SELECT grp FROM groups WHERE read_date >= CURRENT_DATE - 1 ORDER BY read_date DESC LIMIT 1)
+  `, [user.id]);
+
+  const todayRes = await pool.query(
+    'SELECT story_id FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE ORDER BY created_at LIMIT 1',
+    [user.id]
+  );
+
+  const stats = await getReadStats(user.id);
+
+  res.json({
+    ...user,
+    total_stories_read: stats.stories,
+    streak_days: streakRes.rows[0].streak,
+    today_story_id: todayRes.rows[0]?.story_id ?? null,
+    badges: badgesRes.rows
+  });
 });
 
-// Hikaye Okumayı Tamamlama (Limit Kontrolü ve Rozet Kazanımı)
-app.post('/api/user/read-story', authenticateUser, async (req, res) => {
-  try {
-    const storyId = Number(req.body.story_id);
-    if (!Number.isInteger(storyId)) return res.status(400).json({ hata: 'Geçerli bir story_id gerekli.' });
-    const storyRes = await pool.query('SELECT 1 FROM stories WHERE id = $1', [storyId]);
-    if (storyRes.rowCount === 0) return res.status(404).json({ hata: 'Hikaye bulunamadı' });
+// Hikaye bitti: geçmişte tamamlandı olarak işaretlenir, rozetler verilir. (Günlük hak açılışta düşer.)
+app.post('/api/user/finish-story', authenticateUser, async (req, res) => {
+  const storyId = toId(req.body.story_id);
+  if (!storyId) return res.status(400).json({ hata: 'Geçerli bir story_id gerekli.' });
+  const user = await getOrCreateUser(req.clerkUserId);
 
-    const userProfile = await getOrCreateUser(req.clerkUserId);
-    const userId = userProfile.id;
+  // Hiç açılmamış hikayede 0 satır güncellenir, dolayısıyla rozet de gelmez
+  await pool.query(
+    'UPDATE user_read_history SET completed_at = NOW() WHERE user_id = $1 AND story_id = $2 AND completed_at IS NULL',
+    [user.id, storyId]
+  );
 
-    // 1. Limit Kontrolü (bugün okunan hikayeyi tekrar okumak hakkı yakmaz)
-    if (!userProfile.is_premium) {
-      const todayRes = await pool.query(
-        'SELECT COUNT(*) as today_count FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE AND story_id <> $2',
-        [userId, storyId]
+  const stats = await getReadStats(user.id);
+  const newBadges = [];
+
+  const awardBadge = async (code) => {
+    const badgeRes = await pool.query('SELECT id, name FROM badges WHERE code = $1', [code]);
+    if (badgeRes.rows.length > 0) {
+      const awardRes = await pool.query(
+        'INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+        [user.id, badgeRes.rows[0].id]
       );
-      if (parseInt(todayRes.rows[0].today_count) >= 1) {
-        return res.status(403).json({ 
-          hata: 'Günlük ücretsiz okuma limitine ulaştınız. Sınırsız okuma için Premium\'a geçin.', 
-          limit_reached: true 
-        });
-      }
+      if (awardRes.rowCount > 0) newBadges.push(badgeRes.rows[0].name);
     }
+  };
 
-    // 2. Geçmişe Ekle
-    await pool.query(
-      'INSERT INTO user_read_history (user_id, story_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, storyId]
-    );
+  // >= : rozet sonradan eklense de hak eden herkes bir sonraki okumada alır (tekrar verilmez, ON CONFLICT)
+  if (stats.stories >= 1) await awardBadge('FIRST_STEP');
+  if (stats.stories >= 5) await awardBadge('BOOKWORM');
+  if (stats.categories >= 3) await awardBadge('EXPLORER');
+  // NIGHT_OWL: uyku modu verisi gelince eklenecek
 
-    // 3. Rozet Kontrolleri (Oyunlaştırma)
-    const stats = await getReadStats(userId);
-
-    let newBadges = [];
-
-    const awardBadge = async (code) => {
-      const badgeRes = await pool.query('SELECT id, name FROM badges WHERE code = $1', [code]);
-      if (badgeRes.rows.length > 0) {
-        const badgeId = badgeRes.rows[0].id;
-        const awardRes = await pool.query(
-          'INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
-          [userId, badgeId]
-        );
-        if (awardRes.rowCount > 0) newBadges.push(badgeRes.rows[0].name);
-      }
-    };
-
-    // >= : rozet sonradan eklense de hak eden herkes bir sonraki okumada alır (tekrar verilmez, ON CONFLICT)
-    if (stats.stories >= 1) await awardBadge('FIRST_STEP');
-    if (stats.stories >= 5) await awardBadge('BOOKWORM');
-    if (stats.categories >= 3) await awardBadge('EXPLORER');
-    // NIGHT_OWL: uyku modu verisi gelince eklenecek
-
-    res.json({ mesaj: 'Hikaye okuma başarıyla kaydedildi.', new_badges_earned: newBadges });
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
-  }
+  res.json({ mesaj: 'Hikaye tamamlandı.', new_badges_earned: newBadges });
 });
+
+// Favoriler (Kitaplığım > Favorilerim), en son eklenen önce
+app.get('/api/user/favorites', authenticateUser, async (req, res) => {
+  const user = await getOrCreateUser(req.clerkUserId);
+  const result = await pool.query(
+    `${STORY_CARD_SQL} JOIN user_favorites f ON f.story_id = s.id WHERE f.user_id = $1 ORDER BY f.created_at DESC`,
+    [user.id]
+  );
+  res.json(result.rows);
+});
+
+// Tekrar eklemek/silmek hata vermez; olmayan hikaye eklenmez (INSERT ... SELECT 0 satır)
+app.put('/api/user/favorites/:storyId', authenticateUser, async (req, res) => {
+  const user = await getOrCreateUser(req.clerkUserId);
+  await pool.query(
+    'INSERT INTO user_favorites (user_id, story_id) SELECT $1::int, id FROM stories WHERE id = $2 ON CONFLICT DO NOTHING',
+    [user.id, toId(req.params.storyId)]
+  );
+  res.status(204).end();
+});
+
+app.delete('/api/user/favorites/:storyId', authenticateUser, async (req, res) => {
+  const user = await getOrCreateUser(req.clerkUserId);
+  await pool.query(
+    'DELETE FROM user_favorites WHERE user_id = $1 AND story_id = $2',
+    [user.id, toId(req.params.storyId)]
+  );
+  res.status(204).end();
+});
+
+// Bilinmeyen adresler de { hata } dönsün (uygulama her hatayı aynı şekilde okur)
+app.use((req, res) => res.status(404).json({ hata: 'Bulunamadı.' }));
 
 // Yakalanmayan hatalar (dosya türü/boyutu, bozuk JSON vb.) HTML yerine JSON dönsün
 app.use((err, req, res, next) => {
