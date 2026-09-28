@@ -1,9 +1,9 @@
 // Wobbi Design Tokens
 
 export const Colors = {
-  light: { background: '#F8FAFC', cardBg: '#FFFFFF', text: '#1E293B', textMuted: '#64748B', primary: '#6C4EF5', border: 'rgba(0,0,0,0.08)' },
+  light: { background: '#EFF2F7', cardBg: '#FFFFFF', text: '#1E293B', textMuted: '#64748B', primary: '#6C4EF5', border: 'rgba(0,0,0,0.08)' },
   dark:  { background: '#0F1020', cardBg: '#1A1C3A', text: '#FFFFFF',  textMuted: '#94A3B8', primary: '#7D67FF', border: 'rgba(255,255,255,0.08)' },
-  day:   { background: '#F8FAFC', cardBg: '#FFFFFF', text: '#1E293B', textMuted: '#64748B', primary: '#6C4EF5', border: 'rgba(0,0,0,0.08)' },
+  day:   { background: '#EFF2F7', cardBg: '#FFFFFF', text: '#1E293B', textMuted: '#64748B', primary: '#6C4EF5', border: 'rgba(0,0,0,0.08)' },
   night: { background: '#0F1020', cardBg: '#1A1C3A', text: '#FFFFFF',  textMuted: '#94A3B8', primary: '#7D67FF', border: 'rgba(255,255,255,0.08)' },
 };
 

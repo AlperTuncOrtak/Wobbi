@@ -21,7 +21,7 @@ export default function HomeHeader() {
       
       {/* ── TOP NAV ── */}
       <View style={styles.topNav}>
-        <Text style={[styles.logo, { color: colors.text }]}>Wobbi</Text>
+        <Text style={[styles.logo, { color: isDay ? colors.primary : colors.text }]}>Wobbi</Text>
         
         <View style={styles.rightIcons}>
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: isDay ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]}>
@@ -77,8 +77,11 @@ const styles = StyleSheet.create({
   },
   logo: {
     fontFamily: 'Chewy_400Regular',
-    fontSize: 32,
-    letterSpacing: 1,
+    fontSize: 34,
+    letterSpacing: 1.5,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   rightIcons: {
     flexDirection: 'row',
