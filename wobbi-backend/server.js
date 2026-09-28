@@ -6,12 +6,20 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { clerkMiddleware, requireAuth } = require('@clerk/express');
 
 const app = express();
 const port = 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Clerk Middleware (Sadece CLERK_SECRET_KEY varsa aktif et, yoksa hata vermesin)
+if (process.env.CLERK_SECRET_KEY) {
+  app.use(clerkMiddleware());
+} else {
+  console.log("UYARI: CLERK_SECRET_KEY bulunamadi. Kullanici girisleri calismayacak!");
+}
 
 // Yüklenen dosyaları dışarıya sunmak için statik klasör
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -64,16 +72,13 @@ const authenticateAdmin = (req, res, next) => {
   });
 };
 
-// ---------------- GÜVENLİK (JWT AUTHENTICATION - KULLANICI) ----------------
+// ---------------- GÜVENLİK (JWT AUTHENTICATION - KULLANICI / CLERK) ----------------
+// Clerk SDK kullanıldığı için authenticateUser yerine direkt requireAuth() kullanacağız.
 const authenticateUser = (req, res, next) => {
-  const token = req.headers['authorization'];
-  if (!token) return res.status(401).json({ hata: 'Erişim engellendi. Token yok.' });
-  
-  jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'wobbi_secret_key', (err, decoded) => {
-    if (err) return res.status(403).json({ hata: 'Geçersiz veya süresi dolmuş token.' });
-    req.user = decoded; // { id, email, is_premium }
-    next();
-  });
+  if (!process.env.CLERK_SECRET_KEY) {
+    return res.status(500).json({ hata: "Sunucuda Clerk Ayarları Eksik!" });
+  }
+  requireAuth()(req, res, next);
 };
 
 // Veritabanı Bağlantısı
@@ -219,48 +224,30 @@ app.get('/api/stories/:id', async (req, res) => {
 
 // ---------------- KULLANICI (USER) ENDPOINTLERI ----------------
 
-// Mock Google Login / Kayıt (App içinden Google Auth sonrası buraya istek atılacak)
-app.post('/api/auth/google', async (req, res) => {
-  try {
-    const { email, google_id } = req.body;
-    if (!email) return res.status(400).json({ hata: 'Email zorunlu' });
-
-    // Kullanıcı var mı kontrol et, yoksa yarat
-    let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    let user;
-    
-    if (userResult.rows.length === 0) {
-      // İlk defa giren kullanıcı (Kayıt)
-      const insertRes = await pool.query(
-        'INSERT INTO users (email, google_id) VALUES ($1, $2) RETURNING *',
-        [email, google_id]
-      );
-      user = insertRes.rows[0];
-    } else {
-      user = userResult.rows[0];
-    }
-
-    // Kullanıcı için token oluştur
-    const token = jwt.sign(
-      { id: user.id, email: user.email, is_premium: user.is_premium }, 
-      process.env.JWT_SECRET || 'wobbi_secret_key', 
-      { expiresIn: '30d' }
+// Not: Login/Register işlemi Frontend'de Clerk ile yapılıyor.
+// Backend'de sadece "Lazy Creation" yapıyoruz. İlk istekte veritabanına kaydedilir.
+const getOrCreateUser = async (clerkId, req) => {
+  let userRes = await pool.query('SELECT id, email, is_premium FROM users WHERE clerk_id = $1', [clerkId]);
+  
+  if (userRes.rows.length === 0) {
+    // Clerk'ten email gelmemişse geçici bir email oluştur.
+    // (Gerçek senaryoda req.auth.sessionClaims'den email çekilebilir).
+    const email = `${clerkId}@wobbi.local`; 
+    const insertRes = await pool.query(
+      'INSERT INTO users (email, clerk_id) VALUES ($1, $2) RETURNING id, email, is_premium',
+      [email, clerkId]
     );
-    
-    res.json({ token, user: { id: user.id, email: user.email, is_premium: user.is_premium } });
-  } catch (err) {
-    res.status(500).json({ hata: err.message });
+    return insertRes.rows[0];
   }
-});
+  return userRes.rows[0];
+};
 
 // Kullanıcı Profilini ve Rozetlerini Getir
 app.get('/api/user/profile', authenticateUser, async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    const userRes = await pool.query('SELECT id, email, is_premium, created_at FROM users WHERE id = $1', [userId]);
-    if (userRes.rows.length === 0) return res.status(404).json({ hata: 'Kullanıcı bulunamadı' });
-    const userProfile = userRes.rows[0];
+    const clerkId = req.auth.userId;
+    const userProfile = await getOrCreateUser(clerkId, req);
+    const userId = userProfile.id; // Postgres'teki asıl ID'miz
 
     const badgesRes = await pool.query(`
       SELECT b.name, b.description, b.icon_url, ub.earned_at 
@@ -284,11 +271,13 @@ app.get('/api/user/profile', authenticateUser, async (req, res) => {
 // Hikaye Okumayı Tamamlama (Limit Kontrolü ve Rozet Kazanımı)
 app.post('/api/user/read-story', authenticateUser, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const clerkId = req.auth.userId;
+    const userProfile = await getOrCreateUser(clerkId, req);
+    const userId = userProfile.id;
     const { story_id } = req.body;
     
-    // 1. Limit Kontrolü (Ücretsiz kullanıcılar günde 1 tane okuyabilir)
-    if (!req.user.is_premium) {
+    // 1. Limit Kontrolü
+    if (!userProfile.is_premium) {
       const todayRes = await pool.query(
         'SELECT COUNT(*) as today_count FROM user_read_history WHERE user_id = $1 AND read_date = CURRENT_DATE', 
         [userId]
@@ -301,7 +290,7 @@ app.post('/api/user/read-story', authenticateUser, async (req, res) => {
       }
     }
 
-    // 2. Geçmişe Ekle (Aynı gün aynı kitabı bir kez kaydetmek için ON CONFLICT)
+    // 2. Geçmişe Ekle
     await pool.query(
       'INSERT INTO user_read_history (user_id, story_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, story_id]
@@ -313,7 +302,6 @@ app.post('/api/user/read-story', authenticateUser, async (req, res) => {
     
     let newBadges = [];
 
-    // Yardımcı Fonksiyon: Rozet Ekleme
     const awardBadge = async (code) => {
       const badgeRes = await pool.query('SELECT id, name FROM badges WHERE code = $1', [code]);
       if (badgeRes.rows.length > 0) {
