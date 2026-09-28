@@ -6,512 +6,352 @@ import {
   ScrollView, 
   TouchableOpacity, 
   Image, 
-  ImageBackground,
   Dimensions,
   Platform
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Play, Heart, Moon, Sun, Sparkles, Clock, Compass, Star, User , ChevronRight } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Search, Play, Heart, Moon, Sun, Clock, ChevronRight, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@clerk/expo';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 import { STORY_BOOKS } from '@/data/books';
-
-// Tema Kancaları
 import { useThemeStore } from '@/store/themeStore';
 import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
+// Hero illüstrasyon URL'leri (Furkan'ın çizimleri gelene kadar)
+const HERO_BG = 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80';
+const MASCOT_URL = 'https://cdn3d.iconscout.com/3d/premium/thumb/koala-9973025-8148775.png';
+const PROMO_CHAR = 'https://cdn3d.iconscout.com/3d/premium/thumb/bear-4716533-3917851.png';
+
 const CATEGORIES = [
-  { id: 'sleep', label: 'Uyku İçin', icon: Moon },
-  { id: 'adventure', label: 'Macera', icon: Compass },
-  { id: 'animals', label: 'Hayvanlar', icon: Heart },
-  { id: 'fantasy', label: 'Fantastik', icon: Star },
+  { id: 'sleep', label: 'Uyku İçin', color: '#6C4EF5' },
+  { id: 'adventure', label: 'Macera', color: '#F59E0B' },
+  { id: 'animals', label: 'Hayvanlar', color: '#10B981' },
+  { id: 'fantasy', label: 'Fantastik', color: '#EC4899' },
 ];
 
 export default function HomeScreen() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  
-  // Tema Durumu
+  const router = useRouter();
   const { theme, autoSetTheme, setTheme } = useThemeStore();
   const colors = Colors[theme] || Colors.day;
   const isDay = theme === 'day';
 
   const [activeCategory, setActiveCategory] = useState('sleep');
 
-  useEffect(() => {
-    // Component yüklendiğinde saati kontrol edip temayı ayarla
-    autoSetTheme();
-  }, []);
+  useEffect(() => { autoSetTheme(); }, []);
 
-  const heroBook = STORY_BOOKS[0]; 
-  const popularBooks = STORY_BOOKS.slice(1, 3);
-  const newBooks = STORY_BOOKS.slice(0, 2);
-
-  // Tema Testi için geçici buton fonksiyonu
-  const toggleTheme = () => {
-    setTheme(isDay ? 'night' : 'day');
-  };
+  const popularBooks = STORY_BOOKS.slice(0, 4);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingBottom: 140 }} 
-      >
-        <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        
+        {/* ─── HERO BÖLÜMÜ ─── */}
+        <View style={styles.heroSection}>
+          {/* Arka plan illüstrasyonu */}
+          <Image source={{ uri: HERO_BG }} style={styles.heroBg} resizeMode="cover" />
           
-          {Platform.OS === 'android' ? (
-            <View style={styles.header}>
-              <TouchableOpacity style={[styles.avatarButton, { borderColor: colors.border, backgroundColor: isDay ? '#121322' : colors.cardBg }]}>
-                {user?.imageUrl ? (
-                  <Image source={{ uri: user.imageUrl }} style={styles.avatarImage} />
-                ) : (
-                  <View style={styles.avatarFallback}><User size={20} color="#FFFFFF" /></View>
-                )}
-              </TouchableOpacity>
+          {/* Üstten kararan gradient */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.15)', 'transparent', 'rgba(0,0,0,0.3)']}
+            style={StyleSheet.absoluteFillObject}
+          />
 
-              <View style={[styles.moshiBubble, { backgroundColor: isDay ? '#FFFFFF' : colors.cardBg, borderColor: colors.border }]}>
-                <Text style={[styles.moshiBubbleText, { color: colors.text }]}>
-                  Hey <Text style={{ fontFamily: 'Poppins_700Bold' }}>{user?.firstName || 'Leo'}</Text>
-                </Text>
-              </View>
-
-              <View style={styles.headerRight}>
-                <TouchableOpacity style={[styles.iconButton, { borderColor: colors.border, backgroundColor: isDay ? '#121322' : colors.cardBg }]} onPress={toggleTheme}>
-                  {isDay ? <Moon size={18} color="#FFFFFF" /> : <Sun size={18} color={colors.text} />}
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.iconButton, { borderColor: colors.border, backgroundColor: isDay ? '#121322' : colors.cardBg }]}>
-                  <Search size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.iosHeader}>
-              <Text style={[styles.iosLogoText, { color: colors.text }]}>Wobbi</Text>
-              <View style={styles.headerRight}>
-                <TouchableOpacity style={[styles.iconButton, { borderColor: colors.border }]} onPress={toggleTheme}>
-                  {isDay ? <Moon size={20} color={colors.text} /> : <Sun size={20} color={colors.text} />}
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.iconButton, { borderColor: colors.border }]}>
-                  <Search size={20} color={colors.text} />
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.avatarButton, { borderColor: colors.border }]}>
-                  <Image source={{ uri: user?.imageUrl || "https://www.gravatar.com/avatar/0?d=mp" }} style={styles.avatarImage} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          <Animated.View entering={FadeInDown.duration(600)} style={styles.greetingSection}>
-            <Text style={[styles.greetingSub, { color: colors.textMuted }]}>
-              {isDay ? "Günaydın," : "İyi akşamlar,"}
-            </Text>
-            <View style={styles.nameRow}>
-              <Text style={[styles.greetingName, { color: colors.text }]}>
-                {user?.firstName || "Maceracı"}
-              </Text>
-              {isDay ? (
-                <Sun size={28} color="#F59E0B" fill="#F59E0B" style={{ marginLeft: 8 }} />
-              ) : (
-                <Moon size={24} color="#FCD34D" fill="#FCD34D" style={{ marginLeft: 8 }} />
-              )}
-            </View>
-            <Text style={[styles.greetingDesc, { color: colors.textMuted }]}>
-              {isDay ? "Yeni bir maceraya hazır mısın? ☀️" : "Büyük rüyalar harika bir masalla başlar ✨"}
-            </Text>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(100).duration(600)}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesScroll}>
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat.id;
-                const Icon = cat.icon;
-                return (
-                  <TouchableOpacity 
-                    key={cat.id} 
-                    activeOpacity={0.8}
-                    onPress={() => setActiveCategory(cat.id)}
-                    style={[
-                      styles.categoryPill, 
-                      { borderColor: colors.border, backgroundColor: isDay ? '#FFF' : 'rgba(255,255,255,0.05)' },
-                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary }
-                    ]}
-                  >
-                    <Icon size={14} color={isActive ? "#FFF" : colors.textMuted} />
-                    <Text style={[
-                      styles.categoryText, 
-                      { color: colors.textMuted },
-                      isActive && { color: '#FFF' }
-                    ]}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.heroSection}>
-            <TouchableOpacity activeOpacity={0.9} style={[styles.heroCard, { borderColor: colors.border }]}>
-              <ImageBackground source={heroBook?.coverImage} style={styles.heroImage} resizeMode="cover">
-                <LinearGradient 
-                  colors={['transparent', isDay ? 'rgba(240,249,255,0.8)' : 'rgba(18,19,34,0.4)', colors.background]} 
-                  style={styles.heroGradient} 
-                />
-                <View style={styles.heroContent}>
-                  <Text style={[styles.heroBadge, { color: isDay ? colors.primary : 'rgba(255,255,255,0.6)' }]}>Günün Masalı</Text>
-                  <Text style={[styles.heroTitle, { color: colors.text }]}>{heroBook?.title || "Gizemli Vadi"}</Text>
-                  <Text style={[styles.heroDesc, { color: colors.textMuted }]} numberOfLines={1}>Yıldızların altında huzurlu bir yolculuk...</Text>
-                  
-                  <View style={styles.heroMetaRow}>
-                    <View style={[styles.metaBadge, { backgroundColor: isDay ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.15)' }]}>
-                      <Clock size={12} color={colors.textMuted} />
-                      <Text style={[styles.metaText, { color: colors.text }]}>8 dk</Text>
-                    </View>
-                    <View style={[styles.metaBadge, { backgroundColor: isDay ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.15)' }]}>
-                      <Sparkles size={12} color={colors.textMuted} />
-                      <Text style={[styles.metaText, { color: colors.text }]}>Sakinleştirici</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={[styles.heroPlayButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
-                  <Play size={20} color="#FFF" fill="#FFF" style={{ marginLeft: 2 }} />
-                </View>
-              </ImageBackground>
+          {/* Header - üzerine bindirilmiş */}
+          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+            {/* Avatar */}
+            <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/(tabs)/profile')}>
+              {user?.imageUrl
+                ? <Image source={{ uri: user.imageUrl }} style={styles.avatarImage} />
+                : <View style={styles.avatarFallback}><User size={18} color="#FFF" /></View>
+              }
             </TouchableOpacity>
-          </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.listSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Bu Gece Popüler</Text>
-              <TouchableOpacity><Text style={[styles.seeAllText, { color: colors.textMuted }]}>Tümünü gör</Text></TouchableOpacity>
+            {/* Hey balonu */}
+            <View style={styles.heyBubble}>
+              <Text style={styles.heyText}>
+                Hey <Text style={styles.heyBold}>{user?.firstName || 'Kahraman'}</Text>
+              </Text>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
-              {popularBooks.map((book) => (
-                <TouchableOpacity key={book.id} activeOpacity={0.8} style={styles.bookCard}>
-                  <View style={[styles.cardImageContainer, { borderColor: colors.border }]}>
-                    <Image source={book.coverImage} style={styles.cardImage} />
-                    <View style={styles.cardHeart}>
-                      <Heart size={14} color="#FFF" />
-                    </View>
-                  </View>
-                  <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>{book.title}</Text>
-                  <View style={styles.cardMetaRow}>
-                    <View style={[styles.cardMetaBadge, { borderColor: colors.border, backgroundColor: isDay ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.08)' }]}>
-                      <Clock size={10} color={colors.textMuted} />
-                      <Text style={[styles.cardMetaText, { color: colors.textMuted }]}>7 dk</Text>
-                    </View>
-                    <View style={[styles.cardMetaBadge, { borderColor: colors.border, backgroundColor: isDay ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.08)' }]}>
-                      <Text style={[styles.cardMetaText, { color: colors.textMuted }]}>Macera</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Animated.View>
+            {/* Sağ ikonlar */}
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setTheme(isDay ? 'night' : 'day')}>
+                {isDay ? <Moon size={20} color="#FFF" /> : <Sun size={20} color="#FFF" />}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerIconBtn}>
+                <Search size={20} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        </SafeAreaView>
+          {/* Maskot */}
+          <Image source={{ uri: MASCOT_URL }} style={styles.mascot} resizeMode="contain" />
+
+          {/* Öne çıkan masal küçük kartı */}
+          <View style={styles.featuredChip}>
+            <Image 
+              source={STORY_BOOKS[0]?.coverImage} 
+              style={styles.featuredChipImage} 
+              resizeMode="cover"
+            />
+            <View style={styles.featuredChipInfo}>
+              <Text style={styles.featuredChipLabel}>SleepyPaws önerir</Text>
+              <Text style={styles.featuredChipTitle} numberOfLines={2}>
+                {STORY_BOOKS[0]?.title}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── PROMO BANNER ─── */}
+        <Animated.View entering={FadeInDown.duration(500)} style={styles.promoBanner}>
+          <View style={styles.promoLeft}>
+            <Text style={[styles.promoSub, { color: colors.textMuted }]}>Rahatla ve keşfet</Text>
+            <Text style={[styles.promoTitle, { color: colors.text }]}>3 ücretsiz gün kaldı</Text>
+            <Text style={[styles.promoDesc, { color: colors.textMuted }]}>Devam etmek için abone ol</Text>
+            <TouchableOpacity 
+              style={[styles.promoBtn, { backgroundColor: '#0E1B2A' }]}
+              onPress={() => router.push('/premium')}
+            >
+              <Text style={styles.promoBtnText}>Hemen Katıl</Text>
+              <ChevronRight size={16} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          <Image source={{ uri: PROMO_CHAR }} style={styles.promoChar} resizeMode="contain" />
+        </Animated.View>
+
+        {/* ─── KATEGORİLER ─── */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catsScroll}>
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat.id;
+              return (
+                <TouchableOpacity 
+                  key={cat.id}
+                  onPress={() => setActiveCategory(cat.id)}
+                  style={[
+                    styles.catPill,
+                    { backgroundColor: isActive ? cat.color : colors.cardBg, borderColor: isActive ? cat.color : colors.border }
+                  ]}
+                >
+                  <Text style={[styles.catText, { color: isActive ? '#FFF' : colors.text }]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+
+        {/* ─── MASAL YARAT BANNER ─── */}
+        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <TouchableOpacity
+            onPress={() => router.push('/create-story')}
+            style={[styles.createBanner, { backgroundColor: '#6C4EF5' }]}
+            activeOpacity={0.85}
+          >
+            <View>
+              <Text style={styles.createBannerTitle}>✨ Kendi Masalını Yarat</Text>
+              <Text style={styles.createBannerDesc}>Yapay Zeka ile sihirli bir maceraya atıl</Text>
+            </View>
+            <ChevronRight size={24} color="#FFF" />
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ─── POPÜLER MASALLAR ─── */}
+        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>En Popüler</Text>
+            <TouchableOpacity><Text style={[styles.seeAll, { color: colors.textMuted }]}>Tümünü gör</Text></TouchableOpacity>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.booksScroll}>
+            {popularBooks.map((book) => (
+              <TouchableOpacity 
+                key={book.id}
+                style={styles.bookCard}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/book/${book.id}`)}
+              >
+                <View style={[styles.bookImageWrap, { borderColor: colors.border }]}>
+                  <Image source={book.coverImage} style={styles.bookImage} resizeMode="cover" />
+                  <TouchableOpacity style={styles.heartBtn}>
+                    <Heart size={14} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={1}>{book.title}</Text>
+                <View style={styles.bookMeta}>
+                  <Clock size={11} color={colors.textMuted} />
+                  <Text style={[styles.bookMetaText, { color: colors.textMuted }]}>7 dk</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+
+  // Hero
+  heroSection: {
+    width: '100%',
+    height: 360,
+    position: 'relative',
+    marginBottom: 20,
   },
-  safeArea: {
-    flex: 1,
+  heroBg: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    marginBottom: 24,
-  },
-  iosHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    marginBottom: 24,
-  },
-  iosLogoText: {
-    fontFamily: 'Chewy_400Regular',
-    fontSize: 32,
-    letterSpacing: 1,
-  },
-  moshiBubble: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  moshiBubbleText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 15,
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontFamily: 'Chewy_400Regular',
-    fontSize: 28,
-    letterSpacing: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
+    zIndex: 10,
   },
   avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 40, height: 40, borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)',
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  greetingSection: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  greetingSub: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  greetingName: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 32,
-  },
-  greetingDesc: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 13,
-  },
-  
-  createBanner: {
+  avatarImage: { width: '100%', height: '100%' },
+  avatarFallback: { width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  heyBubble: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderRadius: 24,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
   },
-  createBannerContent: {
-    flex: 1,
-  },
-  createBannerTitle: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 18,
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  createBannerDesc: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  createBannerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  heyText: { fontFamily: 'Poppins_500Medium', fontSize: 15, color: '#1E293B' },
+  heyBold: { fontFamily: 'Poppins_700Bold' },
+  headerRight: { flexDirection: 'row', gap: 10 },
+  headerIconBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center', alignItems: 'center',
   },
 
-  categoriesScroll: {
-    paddingHorizontal: 24,
-    gap: 12,
-    marginBottom: 24,
+  // Maskot
+  mascot: {
+    position: 'absolute',
+    left: 20,
+    bottom: 60,
+    width: 160,
+    height: 160,
   },
-  categoryPill: {
+
+  // Öne çıkan chip
+  featuredChip: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    padding: 10,
+    maxWidth: 200,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  featuredChipImage: { width: 48, height: 48, borderRadius: 10, marginRight: 10 },
+  featuredChipInfo: { flex: 1 },
+  featuredChipLabel: { fontFamily: 'Poppins_400Regular', fontSize: 10, color: '#64748B', marginBottom: 2 },
+  featuredChipTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: '#1E293B' },
+
+  // Promo Banner
+  promoBanner: {
+    marginHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: '#E8F4F8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  promoLeft: { flex: 1 },
+  promoSub: { fontFamily: 'Poppins_400Regular', fontSize: 12, marginBottom: 2 },
+  promoTitle: { fontFamily: 'Poppins_700Bold', fontSize: 18, marginBottom: 2 },
+  promoDesc: { fontFamily: 'Poppins_400Regular', fontSize: 12, marginBottom: 12 },
+  promoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    gap: 4,
+  },
+  promoBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#FFF' },
+  promoChar: { width: 100, height: 100 },
+
+  // Kategoriler
+  catsScroll: { paddingHorizontal: 20, gap: 10, marginBottom: 24 },
+  catPill: {
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 8,
   },
-  categoryText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 13,
-  },
-  heroSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  heroCard: {
-    width: '100%',
-    height: 240,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-  heroGradient: {
-    position: 'absolute',
-    left: 0, right: 0, top: '20%', bottom: 0,
-  },
-  heroContent: {
-    padding: 20,
-    zIndex: 2,
-  },
-  heroBadge: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 11,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heroTitle: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  heroDesc: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  metaBadge: {
+  catText: { fontFamily: 'Poppins_500Medium', fontSize: 13 },
+
+  // Masal Yarat Banner
+  createBanner: {
+    borderRadius: 20,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 6,
-  },
-  metaText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 11,
-  },
-  heroPlayButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  listSection: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 16,
   },
-  sectionTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 18,
+  createBannerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 16, color: '#FFF', marginBottom: 2 },
+  createBannerDesc: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.8)' },
+
+  // Kitaplar
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, marginBottom: 16,
   },
-  seeAllText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 13,
-  },
-  cardsScroll: {
-    paddingHorizontal: 24,
-    gap: 16,
-  },
-  bookCard: {
-    width: 150,
-  },
-  cardImageContainer: {
-    width: '100%',
-    height: 150,
+  sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18 },
+  seeAll: { fontFamily: 'Poppins_500Medium', fontSize: 13 },
+  booksScroll: { paddingHorizontal: 20, gap: 16, paddingBottom: 8 },
+  bookCard: { width: 148 },
+  bookImageWrap: {
+    width: 148, height: 148,
     borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
     marginBottom: 10,
-    borderWidth: 1,
   },
-  cardImage: {
-    width: '100%',
-    height: '100%',
+  bookImage: { width: '100%', height: '100%' },
+  heartBtn: {
+    position: 'absolute', top: 8, right: 8,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  cardHeart: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  cardTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 14,
-    marginBottom: 6,
-  },
-  cardMetaRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cardMetaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-    borderWidth: 1,
-  },
-  cardMetaText: {
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 10,
-  },
+  bookTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 13, marginBottom: 4 },
+  bookMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  bookMetaText: { fontFamily: 'Poppins_400Regular', fontSize: 11 },
 });
