@@ -10,6 +10,7 @@ import { tokenCache } from '../lib/clerk';
 import { useLanguageStore } from '../store/languageStore';
 import { View, ActivityIndicator } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Chewy_400Regular } from '@expo-google-fonts/chewy';
 import { posthog } from '../lib/posthog';
 
 SplashScreen.preventAutoHideAsync();
@@ -75,6 +76,7 @@ function InitialLayout() {
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
+    Chewy_400Regular,
   });
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export default function RootLayout() {
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
+    Chewy_400Regular,
   });
 
   useEffect(() => {
