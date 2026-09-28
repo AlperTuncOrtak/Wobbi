@@ -12,7 +12,7 @@ export default function HomeHeader() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { theme } = useThemeStore();
+  const { theme, setTheme } = useThemeStore();
   const colors = Colors[theme] || Colors.night;
   const isDay = theme === 'day';
 
@@ -50,9 +50,9 @@ export default function HomeHeader() {
             {user?.firstName || 'Leo'}
           </Text>
           {isDay ? (
-            <Sun size={26} color="#F59E0B" fill="#F59E0B" style={{ marginLeft: 8 }} />
+            <TouchableOpacity onPress={() => setTheme("night")}><Sun size={26} color="#F59E0B" fill="#F59E0B" style={{ marginLeft: 8 }} /></TouchableOpacity>
           ) : (
-            <Moon size={26} color="#FCD34D" fill="#FCD34D" style={{ marginLeft: 8 }} />
+            <TouchableOpacity onPress={() => setTheme("day")}><Moon size={26} color="#FCD34D" fill="#FCD34D" style={{ marginLeft: 8 }} /></TouchableOpacity>
           )}
         </View>
         <Text style={[styles.greetingDesc, { color: colors.textMuted }]}>
