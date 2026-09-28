@@ -113,6 +113,20 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
+            <TouchableOpacity style={styles.settingsRow} onPress={() => router.push('/voice-setup')}>
+              <View style={styles.rowLeft}>
+                <View style={[styles.voiceIconWrap, { backgroundColor: colors.primary + '20' }]}>
+                  <Mic size={18} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={[styles.rowText, { color: colors.text }]}>Ses İkizi Oluştur</Text>
+                  <Text style={[styles.rowSubtext, { color: colors.textMuted }]}>ElevenLabs ile kendi sesini klonla</Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <View style={[styles.separator, { backgroundColor: colors.border }]} />
+
             <View style={styles.settingsRow}>
               <View style={styles.rowLeft}>
                 <Shield size={20} color={colors.textMuted} />
@@ -299,6 +313,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  voiceIconWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 4,
+  },
+  rowSubtext: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 11,
+    marginTop: 1,
   },
   rowText: {
     fontFamily: 'Poppins_500Medium',
