@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   Image, 
   ImageBackground,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Play, Heart, Moon, Sun, Sparkles, Clock, Compass, Star, User , ChevronRight } from 'lucide-react-native';

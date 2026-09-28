@@ -103,8 +103,8 @@ function InitialLayout() {
           router.replace('/language-select');
         }
       } else {
-        // Auth and language selected -> go to tabs
-        if (!inTabsGroup) {
+        // Auth and language selected -> go to tabs only if they are on guest routes
+        if (segments[0] === '' || segments[0] === '(auth)') {
           router.replace('/(tabs)');
         }
       }
